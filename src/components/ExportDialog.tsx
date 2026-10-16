@@ -52,6 +52,9 @@ export function ExportDialog(p: Props) {
         degrees,
       });
       host.querySelectorAll('svg').forEach((s) => {
+        // keep every line at the same scale: short final lines stay short
+        const w = Number(s.getAttribute('width')) || 980;
+        s.style.maxWidth = `${Math.min(100, (w / 980) * 100)}%`;
         s.removeAttribute('width');
         s.removeAttribute('height');
         s.style.width = '100%';

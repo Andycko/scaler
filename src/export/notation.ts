@@ -54,6 +54,9 @@ export function renderExercise(host: HTMLElement, notes: ExerciseNote[], o: Nota
   for (let i = 0; i < notes.length; i += perMeasure) measures.push(notes.slice(i, i + perMeasure));
   const systems: ExerciseNote[][][] = [];
   for (let i = 0; i < measures.length; i += perSystem) systems.push(measures.slice(i, i + perSystem));
+  // don't leave a lonely note or two on a line of their own: fold them into the previous line
+  const last = systems[systems.length - 1];
+  if (systems.length > 1 && last.reduce((n, m) => n + m.length, 0) < 4) systems[systems.length - 2].push(...systems.pop()!);
 
   const out: SVGSVGElement[] = [];
   systems.forEach((sys, si) => {
