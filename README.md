@@ -21,6 +21,11 @@ Designed landscape-first for phones, optimised for tablets, and works on desktop
 `src/theory/theory.test.ts` (55 tests) checks the theory against textbook data:
 mode formulas derived by rotation, spelling of all 15 major keys and many modes, letter-per-degree spelling for every scale in every key, enharmonic choice, key signatures, diatonic triads/7ths and Roman numerals, progression labels matching the computed harmony, octave grouping, and that every tab position sounds the intended pitch.
 
+## Deployment
+
+`.github/workflows/deploy.yml` tests and builds the app on every push to `main`, then publishes `dist/` to the `gh-pages` branch.
+In **Settings → Pages**, set *Source: Deploy from a branch* and pick `gh-pages` / `(root)`. The site will be at `https://andycko.github.io/scaler/`.
+
 ## Development
 
 ```bash
