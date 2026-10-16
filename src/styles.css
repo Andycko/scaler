@@ -748,21 +748,17 @@ input[type='range'] {
 
 /* ── Modals ────────────────────────────────────────────── */
 .modal-backdrop {
-  /* --sat: iOS home-screen apps with a translucent status bar draw under it,
-     yet report a viewport that is short by the same amount at the bottom.
-     Stretch the overlay over that gap and keep the dialog clear of the
-     status bar, notch and home indicator. */
-  --sat: env(safe-area-inset-top, 0px);
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: calc(-1 * var(--sat));
+  inset: 0;
   background: rgba(62, 44, 30, 0.35);
   display: grid;
-  place-items: center;
+  /* a full-height row so the dialog's max-height can actually cap it (and its body scroll) */
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
   z-index: 50;
-  padding: max(10px, calc(var(--sat) + 6px)) max(10px, env(safe-area-inset-right)) calc(10px + var(--sat) + env(safe-area-inset-bottom))
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
     max(10px, env(safe-area-inset-left));
 }
 
@@ -798,6 +794,9 @@ input[type='range'] {
 
 .modal-body {
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
   padding: 12px 16px 16px;
 }
 
