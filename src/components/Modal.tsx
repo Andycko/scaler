@@ -5,7 +5,13 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', k);
-    return () => window.removeEventListener('keydown', k);
+    // iOS home-screen apps can leave a strip below the reported viewport that a fixed
+    // overlay never reaches; tint the page canvas itself so the strip matches the overlay.
+    document.documentElement.classList.add('modal-open');
+    return () => {
+      window.removeEventListener('keydown', k);
+      document.documentElement.classList.remove('modal-open');
+    };
   }, [onClose]);
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

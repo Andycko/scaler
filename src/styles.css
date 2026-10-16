@@ -27,6 +27,16 @@ body {
   height: 100%;
 }
 
+/* the canvas colour (what shows beyond the page on iOS) */
+html {
+  background-color: var(--paper);
+}
+
+/* paper with the dialog overlay (rgba(62, 44, 30, 0.35)) composited on top */
+html.modal-open {
+  background-color: #b4a896;
+}
+
 body {
   background-color: var(--paper);
   background-image:
