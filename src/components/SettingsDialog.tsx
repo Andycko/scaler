@@ -1,3 +1,4 @@
+import { TONES, synth } from '../audio/synth';
 import { TUNINGS } from '../theory/fretboard';
 import type { LabelMode } from './Fretboard';
 import { Modal } from './Modal';
@@ -15,6 +16,8 @@ interface Props {
   onBpm: (n: number) => void;
   volume: number;
   onVolume: (n: number) => void;
+  tone: string;
+  onTone: (id: string) => void;
   onClose: () => void;
 }
 
@@ -22,6 +25,28 @@ export function SettingsDialog(p: Props) {
   return (
     <Modal title="Settings" onClose={p.onClose}>
       <div className="settings">
+        <div className="field">
+          <span>Sound</span>
+          <div className="tone-grid" role="radiogroup" aria-label="Synth tone">
+            {TONES.map((t) => (
+              <button
+                key={t.id}
+                role="radio"
+                aria-checked={p.tone === t.id}
+                className={`tone-card ${p.tone === t.id ? 'on' : ''}`}
+                onClick={() => {
+                  p.onTone(t.id);
+                  synth.setTone(t.id);
+                  synth.preview();
+                }}
+              >
+                <strong>{t.name}</strong>
+                <span>{t.description}</span>
+              </button>
+            ))}
+          </div>
+          <span className="field-note">Tap a sound to hear it.</span>
+        </div>
         <label className="field">
           <span>Tuning</span>
           <select value={p.tuningId} onChange={(e) => p.onTuning(e.target.value)}>

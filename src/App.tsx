@@ -1,11 +1,13 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { synth } from './audio/synth';
+import { DEFAULT_TONE, synth } from './audio/synth';
 import { ChordPanel } from './components/ChordPanel';
 import { BOTTOM, type ChordHighlight, DEFAULT_SP, Fretboard, type LabelMode, TOP, W, posKey } from './components/Fretboard';
 import { Icon } from './components/Icon';
+import { InstallDialog } from './components/InstallDialog';
 import { OctaveBar } from './components/OctaveBar';
 import { ScaleInfo } from './components/ScaleInfo';
 import { SettingsDialog } from './components/SettingsDialog';
+import { useInstall } from './install';
 import { usePersistent } from './state';
 import type { Chord } from './theory/chords';
 import { fingerRun } from './theory/fingering';
@@ -28,11 +30,13 @@ export default function App() {
   const [leftHanded, setLeftHanded] = usePersistent('lefty', false);
   const [bpm, setBpm] = usePersistent('bpm', 96);
   const [volume, setVolume] = usePersistent('volume', 0.8);
+  const [tone, setTone] = usePersistent('tone', DEFAULT_TONE);
+  const install = useInstall();
   const [focusArr, setFocusArr] = useState<number[]>([]);
   const [chord, setChord] = useState<Chord | null>(null);
   const [playing, setPlaying] = useState<Set<string>>(new Set());
   const [isPlayingRun, setIsPlayingRun] = useState(false);
-  const [panel, setPanel] = useState<null | 'chords' | 'export' | 'settings'>(null);
+  const [panel, setPanel] = useState<null | 'chords' | 'export' | 'settings' | 'install'>(null);
   const [progPlaying, setProgPlaying] = useState<{ name: string; index: number; chords: Chord[] } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0, fill: false });
@@ -70,6 +74,7 @@ export default function App() {
   const focus = useMemo(() => new Set(focusArr.filter((g) => g < model.groups.length)), [focusArr, model.groups.length]);
 
   useEffect(() => synth.setVolume(volume), [volume]);
+  useEffect(() => synth.setTone(tone), [tone]);
 
   const stopAll = useCallback(() => {
     synth.stop();
@@ -134,8 +139,11 @@ export default function App() {
   const minBoardWidth = Math.max(600, frets * 30);
   const innerW = Math.max(box.w, minBoardWidth);
   const nStrings = tuning.strings.length;
+  // Fill the free height on phones, but cap the on-screen string spacing (~50 px) so wide
+  // screens keep a neck-like proportion instead of a tall, stretched board.
+  const maxSpacing = Math.max(26, Math.min(64, (50 * W) / innerW));
   const spacing =
-    box.fill && box.h > 0 ? Math.min(76, Math.max(26, (((box.h - 6) * W) / innerW - TOP - BOTTOM) / (nStrings - 1))) : DEFAULT_SP;
+    box.fill && box.h > 0 ? Math.min(maxSpacing, Math.max(26, (((box.h - 6) * W) / innerW - TOP - BOTTOM) / (nStrings - 1))) : DEFAULT_SP;
 
   const chordStrip = currentChord && (
     <div className="chord-strip">
@@ -227,6 +235,18 @@ export default function App() {
             <Icon name="pdf" />
             <span>Export</span>
           </button>
+          {install.available && (
+            <button
+              className="tool install-btn"
+              onClick={async () => {
+                if (!(await install.install())) setPanel('install');
+              }}
+              title="Install as an app (full-screen, works offline)"
+            >
+              <Icon name="install" />
+              <span>Install</span>
+            </button>
+          )}
           <button className="tool icon-only" onClick={() => setPanel('settings')} title="Settings" aria-label="Settings">
             <Icon name="gear" />
           </button>
@@ -236,7 +256,7 @@ export default function App() {
       <main className={`stage ${panel === 'chords' ? 'with-panel' : ''}`}>
         <div className="board-col">
           <ScaleInfo scale={scale} onPlayNote={(m) => synth.pluck(m)} extra={chordStrip} />
-          <div className="board-wrap" style={box.fill ? { maxHeight: `${((TOP + BOTTOM + (nStrings - 1) * 76) * innerW) / W + 14}px` } : undefined}>
+          <div className="board-wrap" style={box.fill ? { maxHeight: `${((TOP + BOTTOM + (nStrings - 1) * maxSpacing) * innerW) / W + 14}px` } : undefined}>
             <div className="board-scroll" ref={boardRef}>
               <div className="board-inner" style={{ width: box.w && innerW > box.w ? `${innerW}px` : '100%' }}>
                 <Fretboard
@@ -293,9 +313,12 @@ export default function App() {
           onBpm={setBpm}
           volume={volume}
           onVolume={setVolume}
+          tone={tone}
+          onTone={setTone}
           onClose={() => setPanel(null)}
         />
       )}
+      {panel === 'install' && <InstallDialog platform={install.platform} onClose={() => setPanel(null)} />}
       <div className="rotate-hint" role="note">
         <Icon name="rotate" /> Turn your phone sideways for the full fretboard.
       </div>
