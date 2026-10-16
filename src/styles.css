@@ -1318,9 +1318,58 @@ legend {
 }
 
 /* Wide screens: the board keeps its proportion; centre the content vertically */
-@media (min-width: 1024px) and (min-height: 600px) {
-  .board-col {
+/* Desktop: board on top, chords panel below it at full width (keep in sync with App.tsx) */
+@media (min-width: 1024px) and (min-height: 700px) {
+  .stage {
+    flex-direction: column;
     justify-content: center;
+    overflow-y: auto;
+  }
+
+  .stage.with-panel {
+    justify-content: flex-start;
+  }
+
+  .board-col {
+    flex: none;
+  }
+
+  .board-wrap {
+    flex: none;
+  }
+
+  .panel {
+    width: 100%;
+    max-height: none;
+    flex: none;
+    align-self: stretch;
+  }
+
+  .panel-body {
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    align-items: start;
+    gap: 10px 12px;
+  }
+
+  .panel-body > .tempo,
+  .panel-body > .panel-tip,
+  .panel-body > .seg,
+  .panel-body > .chord-grid {
+    grid-column: 1 / -1;
+  }
+
+  .panel-body > .tempo {
+    max-width: 420px;
+  }
+
+  .panel-body > .seg {
+    justify-self: start;
+  }
+
+  .chord-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   }
 }
 

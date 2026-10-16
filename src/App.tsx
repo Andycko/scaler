@@ -39,21 +39,25 @@ export default function App() {
   const [panel, setPanel] = useState<null | 'chords' | 'export' | 'settings' | 'install'>(null);
   const [progPlaying, setProgPlaying] = useState<{ name: string; index: number; chords: Chord[] } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ w: 0, h: 0, fill: false });
+  const [box, setBox] = useState({ w: 0, h: 0, fill: false, desk: false });
 
   // measure the space available to the fretboard so it can fill landscape screens
   useEffect(() => {
     const el = boardRef.current;
     if (!el) return;
     const mq = window.matchMedia('(orientation: landscape), (min-width: 700px)');
-    const update = () => setBox({ w: el.clientWidth, h: el.clientHeight, fill: mq.matches });
+    // must match the desktop media query in styles.css (chords panel below the board)
+    const desk = window.matchMedia('(min-width: 1024px) and (min-height: 700px)');
+    const update = () => setBox({ w: el.clientWidth, h: el.clientHeight, fill: mq.matches, desk: desk.matches });
     const ro = new ResizeObserver(update);
     ro.observe(el);
     mq.addEventListener('change', update);
+    desk.addEventListener('change', update);
     update();
     return () => {
       ro.disconnect();
       mq.removeEventListener('change', update);
+      desk.removeEventListener('change', update);
     };
   }, []);
 
@@ -142,8 +146,13 @@ export default function App() {
   // Fill the free height on phones, but cap the on-screen string spacing (~50 px) so wide
   // screens keep a neck-like proportion instead of a tall, stretched board.
   const maxSpacing = Math.max(26, Math.min(64, (50 * W) / innerW));
-  const spacing =
-    box.fill && box.h > 0 ? Math.min(maxSpacing, Math.max(26, (((box.h - 6) * W) / innerW - TOP - BOTTOM) / (nStrings - 1))) : DEFAULT_SP;
+  // Desktop: the board has a fixed neck-like height and the chords panel sits below it.
+  const spacing = box.desk
+    ? maxSpacing
+    : box.fill && box.h > 0
+      ? Math.min(maxSpacing, Math.max(26, (((box.h - 6) * W) / innerW - TOP - BOTTOM) / (nStrings - 1)))
+      : DEFAULT_SP;
+  const boardHeight = ((TOP + BOTTOM + (nStrings - 1) * maxSpacing) * innerW) / W + 14;
 
   const chordStrip = currentChord && (
     <div className="chord-strip">
@@ -256,7 +265,10 @@ export default function App() {
       <main className={`stage ${panel === 'chords' ? 'with-panel' : ''}`}>
         <div className="board-col">
           <ScaleInfo scale={scale} onPlayNote={(m) => synth.pluck(m)} extra={chordStrip} />
-          <div className="board-wrap" style={box.fill ? { maxHeight: `${((TOP + BOTTOM + (nStrings - 1) * maxSpacing) * innerW) / W + 14}px` } : undefined}>
+          <div
+            className="board-wrap"
+            style={box.desk ? { height: `${boardHeight}px` } : box.fill ? { maxHeight: `${boardHeight}px` } : undefined}
+          >
             <div className="board-scroll" ref={boardRef}>
               <div className="board-inner" style={{ width: box.w && innerW > box.w ? `${innerW}px` : '100%' }}>
                 <Fretboard
