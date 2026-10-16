@@ -39,7 +39,9 @@ export default function App() {
   const [chord, setChord] = useState<Chord | null>(null);
   const [playing, setPlaying] = useState<Set<string>>(new Set());
   const [isPlayingRun, setIsPlayingRun] = useState(false);
-  const [panel, setPanel] = useState<null | 'chords' | 'export' | 'settings' | 'install'>(null);
+  // the chords panel and the dialogs are independent: a dialog opens over an open panel
+  const [chordsOpen, setChordsOpen] = useState(false);
+  const [dialog, setDialog] = useState<null | 'export' | 'settings' | 'install'>(null);
   const [progPlaying, setProgPlaying] = useState<{ name: string; index: number; chords: Chord[] } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0, fill: false, desk: false });
@@ -260,11 +262,11 @@ export default function App() {
             <Icon name={isPlayingRun ? 'stop' : 'play'} />
             <span>{isPlayingRun ? 'Stop' : 'Play'}</span>
           </button>
-          <button className={`tool ${panel === 'chords' ? 'active' : ''}`} onClick={() => setPanel(panel === 'chords' ? null : 'chords')} title="Chords & progressions">
+          <button className={`tool ${chordsOpen ? 'active' : ''}`} onClick={() => setChordsOpen(!chordsOpen)} title="Chords & progressions">
             <Icon name="chords" />
             <span>Chords</span>
           </button>
-          <button className="tool" onClick={() => setPanel('export')} title="Export notation / tab as PDF">
+          <button className="tool" onClick={() => setDialog('export')} title="Export notation / tab as PDF">
             <Icon name="pdf" />
             <span>Export</span>
           </button>
@@ -272,7 +274,7 @@ export default function App() {
             <button
               className="tool install-btn"
               onClick={async () => {
-                if (!(await install.install())) setPanel('install');
+                if (!(await install.install())) setDialog('install');
               }}
               title="Install as an app (full-screen, works offline)"
             >
@@ -280,13 +282,13 @@ export default function App() {
               <span>Install</span>
             </button>
           )}
-          <button className="tool icon-only" onClick={() => setPanel('settings')} title="Settings" aria-label="Settings">
+          <button className="tool icon-only" onClick={() => setDialog('settings')} title="Settings" aria-label="Settings">
             <Icon name="gear" />
           </button>
         </nav>
       </header>
 
-      <main className={`stage ${panel === 'chords' ? 'with-panel' : ''}`}>
+      <main className={`stage ${chordsOpen ? 'with-panel' : ''}`}>
         <div className="board-col">
           <ScaleInfo scale={scale} onPlayNote={(m) => synth.pluck(m)} extra={chordStrip} />
           <div
@@ -323,14 +325,14 @@ export default function App() {
             onLabelMode={setLabelMode}
           />
         </div>
-        {panel === 'chords' && (
+        {chordsOpen && (
           <ChordPanel
             scale={scale}
             selected={chord}
             playing={progPlaying}
             bpm={bpm}
             onBpm={setBpm}
-            onClose={() => setPanel(null)}
+            onClose={() => setChordsOpen(false)}
             onSelectChord={(c) => {
               setProgPlaying(null);
               setChord(c);
@@ -341,12 +343,12 @@ export default function App() {
         )}
       </main>
 
-      {panel === 'export' && (
+      {dialog === 'export' && (
         <Suspense fallback={<div className="modal-backdrop" />}>
-          <ExportDialog scale={scale} model={model} tuning={tuning} frets={frets} focus={focus} leftHanded={leftHanded} labelMode={labelMode} onClose={() => setPanel(null)} />
+          <ExportDialog scale={scale} model={model} tuning={tuning} frets={frets} focus={focus} leftHanded={leftHanded} labelMode={labelMode} onClose={() => setDialog(null)} />
         </Suspense>
       )}
-      {panel === 'settings' && (
+      {dialog === 'settings' && (
         <SettingsDialog
           tuningId={tuning.id}
           onTuning={setTuningId}
@@ -362,10 +364,10 @@ export default function App() {
           onVolume={setVolume}
           tone={tone}
           onTone={setTone}
-          onClose={() => setPanel(null)}
+          onClose={() => setDialog(null)}
         />
       )}
-      {panel === 'install' && <InstallDialog platform={install.platform} onClose={() => setPanel(null)} />}
+      {dialog === 'install' && <InstallDialog platform={install.platform} onClose={() => setDialog(null)} />}
       <div className="rotate-hint" role="note">
         <Icon name="rotate" /> Turn your phone sideways for the full fretboard.
       </div>
