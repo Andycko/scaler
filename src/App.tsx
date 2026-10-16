@@ -4,7 +4,7 @@ import { ChordPanel } from './components/ChordPanel';
 import { BOTTOM, type ChordHighlight, DEFAULT_SP, Fretboard, type LabelMode, TOP, W, posKey } from './components/Fretboard';
 import { Icon } from './components/Icon';
 import { InstallDialog } from './components/InstallDialog';
-import { OctaveBar } from './components/OctaveBar';
+import { type GroupMode, OctaveBar } from './components/OctaveBar';
 import { ScaleInfo } from './components/ScaleInfo';
 import { SettingsDialog } from './components/SettingsDialog';
 import { useInstall } from './install';
@@ -12,6 +12,7 @@ import { usePersistent } from './state';
 import type { Chord } from './theory/chords';
 import { fingerRun } from './theory/fingering';
 import { TUNINGS, computeFretboard, groupRuns } from './theory/fretboard';
+import { computePositions } from './theory/positions';
 import { KEY_CHOICES, mod, noteName, pitchClass } from './theory/notes';
 import { FAMILIES, autoRootSpelling, buildScale, getFamily } from './theory/scales';
 
@@ -33,6 +34,8 @@ export default function App() {
   const [tone, setTone] = usePersistent('tone', DEFAULT_TONE);
   const install = useInstall();
   const [focusArr, setFocusArr] = useState<number[]>([]);
+  const [groupMode, setGroupMode] = usePersistent<GroupMode>('groupMode', 'octaves');
+  const [boxFocusArr, setBoxFocusArr] = useState<number[]>([0]);
   const [chord, setChord] = useState<Chord | null>(null);
   const [playing, setPlaying] = useState<Set<string>>(new Set());
   const [isPlayingRun, setIsPlayingRun] = useState(false);
@@ -76,6 +79,15 @@ export default function App() {
   const scale = useMemo(() => buildScale(root, family.id, mode.id), [root, family.id, mode.id]);
   const model = useMemo(() => computeFretboard(scale, tuning, frets), [scale, tuning, frets]);
   const focus = useMemo(() => new Set(focusArr.filter((g) => g < model.groups.length)), [focusArr, model.groups.length]);
+  const positions = useMemo(() => computePositions(scale, tuning, frets), [scale, tuning, frets]);
+  const boxFocus = useMemo(
+    () => new Set(boxFocusArr.filter((g) => g < positions.patterns.length)),
+    [boxFocusArr, positions.patterns.length],
+  );
+  const boxes = useMemo(
+    () => (groupMode === 'boxes' ? { membership: positions.membership, count: positions.patterns.length, focus: boxFocus } : null),
+    [groupMode, positions, boxFocus],
+  );
 
   useEffect(() => synth.setVolume(volume), [volume]);
   useEffect(() => synth.setTone(tone), [tone]);
@@ -96,18 +108,29 @@ export default function App() {
   const playScale = () => {
     if (isPlayingRun) return stopAll();
     stopAll();
-    const groups = focus.size ? [...focus] : model.groups.map((g) => g.index);
-    const runs = groupRuns(model, groups);
     const midis: number[] = [];
     const keys: string[] = [];
-    for (const run of runs) {
-      const pos = fingerRun(run.midis, tuning, frets);
-      const up = run.midis.map((m, i) => ({ m, k: posKey(pos[i].string, pos[i].fret) }));
-      const seq = [...up, ...up.slice(0, -1).reverse()];
+    const push = (seq: { m: number; k: string }[]) =>
       seq.forEach((x) => {
         midis.push(x.m);
         keys.push(x.k);
       });
+    if (groupMode === 'boxes') {
+      // play each selected shape up and down, exactly where it sits on the neck
+      const chosen = boxFocus.size ? [...boxFocus].sort((a, b) => a - b) : positions.patterns.map((pt) => pt.index);
+      for (const g of chosen) {
+        const inst = positions.patterns[g]?.first;
+        if (!inst) continue;
+        const up = [...inst.notes].sort((a, b) => a.midi - b.midi).map((n) => ({ m: n.midi, k: posKey(n.string, n.fret) }));
+        push([...up, ...up.slice(0, -1).reverse()]);
+      }
+    } else {
+      const groups = focus.size ? [...focus] : model.groups.map((g) => g.index);
+      for (const run of groupRuns(model, groups)) {
+        const pos = fingerRun(run.midis, tuning, frets);
+        const up = run.midis.map((m, i) => ({ m, k: posKey(pos[i].string, pos[i].fret) }));
+        push([...up, ...up.slice(0, -1).reverse()]);
+      }
     }
     setIsPlayingRun(true);
     synth.playRun(midis, bpm * 2, (i) => {
@@ -134,8 +157,9 @@ export default function App() {
   };
 
   const toggleFocus = (g: number | 'all') => {
-    if (g === 'all') return setFocusArr([]);
-    setFocusArr((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g].sort((a, b) => a - b)));
+    const set = groupMode === 'boxes' ? setBoxFocusArr : setFocusArr;
+    if (g === 'all') return set([]);
+    set((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g].sort((a, b) => a - b)));
   };
 
   const currentChord = progPlaying ? progPlaying.chords[progPlaying.index] : chord;
@@ -282,11 +306,22 @@ export default function App() {
                   playing={playing}
                   onNote={(n) => synth.pluck(n.midi)}
                   spacing={spacing}
+                  boxes={boxes}
                 />
               </div>
             </div>
           </div>
-          <OctaveBar groups={model.groups} focus={focus} onToggle={toggleFocus} labelMode={labelMode} onLabelMode={setLabelMode} />
+          <OctaveBar
+            mode={groupMode}
+            onMode={setGroupMode}
+            groups={model.groups}
+            patterns={positions.patterns}
+            patternKind={positions.kind}
+            focus={groupMode === 'boxes' ? boxFocus : focus}
+            onToggle={toggleFocus}
+            labelMode={labelMode}
+            onLabelMode={setLabelMode}
+          />
         </div>
         {panel === 'chords' && (
           <ChordPanel

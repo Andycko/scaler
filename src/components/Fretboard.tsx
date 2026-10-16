@@ -29,6 +29,55 @@ export interface FretboardProps {
   onlyGroups?: Set<number> | null;
   /** String spacing in viewBox units (board height follows from it). */
   spacing?: number;
+  /** Colour by box shape / scale position instead of by octave. */
+  boxes?: { membership: Map<string, number[]>; count: number; focus: Set<number> } | null;
+}
+
+interface Slice {
+  color: string;
+  on: boolean;
+}
+
+/** Order shared patterns as they sit on the neck: consecutive, wrapping (e.g. Box 5 → Box 1). */
+function neckOrder(members: number[], count: number): number[] {
+  const sorted = [...members].sort((a, b) => a - b);
+  if (sorted.length < 2) return sorted;
+  // start after the largest gap in the circular sequence
+  let best = 0;
+  let gap = -1;
+  sorted.forEach((m, i) => {
+    const next = sorted[(i + 1) % sorted.length] + (i + 1 === sorted.length ? count : 0);
+    if (next - m > gap) {
+      gap = next - m;
+      best = (i + 1) % sorted.length;
+    }
+  });
+  return [...sorted.slice(best), ...sorted.slice(0, best)];
+}
+
+/** Pie wedges (2 slices → left/right halves, like the shared-root markers). */
+function wedges(cx: number, cy: number, r: number, slices: Slice[], anyOn: boolean) {
+  const n = slices.length;
+  const op = (sl: Slice) => (sl.on || !anyOn ? 1 : 0.28);
+  if (n === 1) return <circle cx={cx} cy={cy} r={r} fill={slices[0].color} opacity={op(slices[0])} />;
+  if (n === 2)
+    return (
+      <>
+        <path d={`M${cx},${cy - r} A${r},${r} 0 0 0 ${cx},${cy + r} Z`} fill={slices[0].color} opacity={op(slices[0])} />
+        <path d={`M${cx},${cy - r} A${r},${r} 0 0 1 ${cx},${cy + r} Z`} fill={slices[1].color} opacity={op(slices[1])} />
+        <line x1={cx} x2={cx} y1={cy - r} y2={cy + r} stroke={CREAM} strokeWidth={1} opacity={0.7} />
+      </>
+    );
+  const pt = (a: number) => `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
+  return (
+    <>
+      {slices.map((sl, i) => {
+        const a0 = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+        const a1 = a0 + (2 * Math.PI) / n;
+        return <path key={i} d={`M${cx},${cy} L${pt(a0)} A${r},${r} 0 0 1 ${pt(a1)} Z`} fill={sl.color} opacity={op(sl)} stroke={CREAM} strokeWidth={0.8} strokeOpacity={0.7} />;
+      })}
+    </>
+  );
 }
 
 export const W = 1000;
@@ -172,20 +221,35 @@ function FretboardImpl(p: FretboardProps) {
         const cy = yOf(fn.string);
         const key = posKey(fn.string, fn.fret);
         const isPlaying = p.playing?.has(key);
-        const upperFocus = inFocus(fn.group);
-        const lowerFocus = fn.endsGroup !== null && inFocus(fn.endsGroup);
-        const anyFocus = upperFocus || lowerFocus;
         const dim = 0.17;
+        let slices: Slice[];
+        let anyFocus: boolean;
+        if (p.boxes) {
+          const members = p.boxes.membership.get(key) ?? [];
+          const visible = p.boxes.focus.size ? members.filter((m) => p.boxes!.focus.has(m)) : members;
+          anyFocus = visible.length > 0;
+          const shownMembers = anyFocus ? visible : members;
+          slices = shownMembers.length
+            ? neckOrder(shownMembers, p.boxes.count).map((m) => ({ color: octaveColor(m), on: anyFocus }))
+            : [{ color: '#9c8a74', on: false }];
+        } else {
+          // octaves: a root shared by two octaves is split — lower octave left, upper octave right
+          const upperFocus = inFocus(fn.group);
+          const lowerFocus = fn.endsGroup !== null && inFocus(fn.endsGroup);
+          anyFocus = upperFocus || lowerFocus;
+          slices =
+            fn.endsGroup !== null
+              ? [
+                  { color: octaveColor(fn.endsGroup), on: lowerFocus },
+                  { color: octaveColor(fn.group), on: upperFocus },
+                ]
+              : [{ color: octaveColor(fn.group), on: upperFocus }];
+        }
+        if (p.leftHanded) slices = [...slices].reverse();
         const chordTone = p.chord?.tones.get(mod(fn.midi, 12));
         const chordDim = p.chord && chordTone === undefined;
         const opacity = (anyFocus ? 1 : dim) * (chordDim ? 0.45 : 1);
         const lab = label(fn);
-        // left half = lower octave (which this root ends), right half = upper octave (which it starts)
-        const leftColor = octaveColor(fn.endsGroup ?? fn.group);
-        const rightColor = octaveColor(fn.group);
-        const split = fn.endsGroup !== null;
-        const [lc, rc] = p.leftHanded ? [rightColor, leftColor] : [leftColor, rightColor];
-        const [lo, ro] = p.leftHanded ? [upperFocus, lowerFocus] : [lowerFocus, upperFocus];
         return (
           <g
             key={key}
@@ -196,15 +260,7 @@ function FretboardImpl(p: FretboardProps) {
           >
             {isPlaying && <circle cx={cx} cy={cy} r={r + 7} fill="#fff3c4" opacity={0.9} />}
             {chordTone !== undefined && <circle cx={cx} cy={cy} r={r + 3.6} fill="none" stroke={INK} strokeWidth={2.2} />}
-            {split ? (
-              <>
-                <path d={`M${cx},${cy - r} A${r},${r} 0 0 0 ${cx},${cy + r} Z`} fill={lc} opacity={lo || !anyFocus ? 1 : 0.28} />
-                <path d={`M${cx},${cy - r} A${r},${r} 0 0 1 ${cx},${cy + r} Z`} fill={rc} opacity={ro || !anyFocus ? 1 : 0.28} />
-                <line x1={cx} x2={cx} y1={cy - r} y2={cy + r} stroke={CREAM} strokeWidth={1} opacity={0.7} />
-              </>
-            ) : (
-              <circle cx={cx} cy={cy} r={r} fill={rightColor} />
-            )}
+            {wedges(cx, cy, r, slices, anyFocus)}
             <circle
               cx={cx}
               cy={cy}
