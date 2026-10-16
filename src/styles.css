@@ -1384,3 +1384,177 @@ legend {
     padding: 0 10px;
   }
 }
+
+/* ── My progressions ───────────────────────────────────── */
+.mine {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed var(--ink-soft);
+  border-radius: 12px;
+  background: #fffaf0;
+}
+
+.mine-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mine-head h3,
+.section-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 15px;
+}
+
+.section-title {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-style: italic;
+}
+
+.mine-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--teal);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link-btn.danger {
+  color: var(--accent);
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.name-input {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.prog-chords.draft {
+  min-height: 46px;
+  padding: 6px;
+  margin: 0;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.prog-chords .empty {
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-soft);
+  align-self: center;
+  padding: 0 4px;
+}
+
+.pc .pc-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 0;
+  line-height: 1.15;
+}
+
+.prog-chords.draft .pc {
+  position: relative;
+  padding-right: 18px;
+}
+
+.pc-x {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.quick-head,
+.any-chord {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quick-head > span,
+.any-chord > span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.quick-chords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.any-chord select {
+  width: auto;
+  flex: 1 1 120px;
+  height: 32px;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.chip-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .panel-body > .mine,
+  .panel-body > .section-title {
+    grid-column: 1 / -1;
+  }
+
+  .mine {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    align-items: start;
+  }
+
+  .mine > .mine-head,
+  .mine > .panel-tip,
+  .mine > .editor {
+    grid-column: 1 / -1;
+  }
+}

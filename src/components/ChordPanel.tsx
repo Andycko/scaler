@@ -5,6 +5,7 @@ import { noteName, pitchClass } from '../theory/notes';
 import { progressionsFor } from '../theory/progressions';
 import type { Scale } from '../theory/scales';
 import { Icon } from './Icon';
+import { MyProgressions } from './MyProgressions';
 
 interface Props {
   scale: Scale;
@@ -66,6 +67,14 @@ export function ChordPanel(p: Props) {
             </label>
           </div>
           <p className="panel-tip">Loop a progression and improvise over it — chord tones are ringed on the fretboard as each chord plays.</p>
+          <MyProgressions
+            scale={p.scale}
+            playingName={p.playing?.name ?? null}
+            playingIndex={p.playing?.index ?? -1}
+            onPlay={play}
+            onSelect={select}
+          />
+          <h3 className="section-title">Suggested for this mode</h3>
           {progs.map((pr) => {
             const active = p.playing?.name === pr.name;
             const outside = [...new Set(pr.chords.flatMap((c) => c.outside.map(noteName)))];

@@ -16,6 +16,7 @@ Designed landscape-first for phones, optimised for tablets, and works on desktop
 - **Chords & progressions** for every key, scale and mode combination:
   - Diatonic triads and 7th chords with Roman numerals (7-note scales).
   - Progressions chosen for each mode. You can play one or **loop it as a backing track**. The current chord's tones are ringed on the fretboard. Chord tones outside the scale are named and shown as dashed markers.
+- **My progressions**: build your own progression from the scale's chords or any chord (12 roots × common qualities), then play or loop it with chord tones ringed on the fretboard. Saved in the browser (localStorage) as Roman numerals, so a progression follows you to any key.
 - **PDF export**: one or more octaves (as separate exercises or joined into one run), ascending or up-and-down. Choose standard notation (treble-8vb clef with the right key signature), tab, or both. Optional scale-degree labels and a fretboard diagram. A live preview shows before you download.
 
 ## Music-theory verification
