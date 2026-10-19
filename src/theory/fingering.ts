@@ -12,7 +12,14 @@ export interface TabPosition {
  * low positions — producing the compact box / 3-notes-per-string shapes
  * guitarists actually use.
  */
-export function fingerRun(midis: number[], tuning: Tuning, maxFret: number, minFret = 0): TabPosition[] {
+export function fingerRun(
+  midis: number[],
+  tuning: Tuning,
+  maxFret: number,
+  minFret = 0,
+  /** Preferred hand position [lowest, highest fret]; notes outside it cost more. */
+  prefer?: [number, number],
+): TabPosition[] {
   if (midis.length === 0) return [];
   const cands = midis.map((m) => {
     const list: TabPosition[] = [];
@@ -31,7 +38,13 @@ export function fingerRun(midis: number[], tuning: Tuning, maxFret: number, minF
     return list;
   });
 
-  const noteCost = (p: TabPosition) => p.fret * 0.06;
+  const outside = (p: TabPosition) => {
+    if (!prefer) return 0;
+    const [lo, hi] = prefer;
+    if (p.fret === 0) return lo <= 2 ? 0 : 4 + lo; // open strings belong to the first position only
+    return p.fret < lo ? 4 + (lo - p.fret) * 2 : p.fret > hi ? 4 + (p.fret - hi) * 2 : 0;
+  };
+  const noteCost = (p: TabPosition) => p.fret * 0.06 + outside(p);
   const move = (a: TabPosition, b: TabPosition, rising: boolean) => {
     let c = 0;
     if (a.fret !== 0 && b.fret !== 0) {

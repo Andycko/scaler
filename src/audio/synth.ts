@@ -285,8 +285,8 @@ class Synth {
     return this.finish(ctx, fmSamples(midi, ctx.sampleRate), 0.5);
   }
 
-  /** Pluck one note `delay` seconds from now. */
-  pluck(midi: number, delay = 0, gain = 1, duration?: number) {
+  /** Pluck one note `delay` seconds from now; `bend` raises the pitch by that many semitones (a string bend). */
+  pluck(midi: number, delay = 0, gain = 1, duration?: number, bend = 0) {
     const ctx = this.ensure();
     const src = ctx.createBufferSource();
     src.buffer = this.buffer(midi);
@@ -295,6 +295,12 @@ class Synth {
     const t = ctx.currentTime + delay + 0.01 + rand(0, 0.006);
     const v = gain * rand(0.86, 1.06);
     g.gain.setValueAtTime(v, t);
+    if (bend) {
+      // pick the note, then push the string up: a quick but audible rise to the target pitch
+      const rise = Math.min(0.22, (duration ?? 0.5) * 0.45);
+      src.playbackRate.setValueAtTime(1, t + 0.06);
+      src.playbackRate.linearRampToValueAtTime(Math.pow(2, bend / 12), t + 0.06 + rise);
+    }
     if (duration) {
       g.gain.setValueAtTime(v, t + duration);
       g.gain.exponentialRampToValueAtTime(0.001, t + duration + 0.3);
@@ -345,6 +351,27 @@ class Synth {
       }
     }
     this.active = [];
+  }
+
+  /**
+   * Play a lick: durations in 16th notes at `bpm`, bends rendered as pitch
+   * glides. `onNote(i)` fires as note i sounds, `onNote(-1)` at the end.
+   */
+  playLick(notes: { midi: number; dur: number; bendTo?: number; rest?: boolean }[], bpm: number, onNote: Listener) {
+    this.stop();
+    this.ensure();
+    const sixteenth = 60 / bpm / 4;
+    let t = 0.05;
+    notes.forEach((n, i) => {
+      const len = n.dur * sixteenth;
+      if (!n.rest) {
+        this.pluck(n.midi, t, 0.95, len * 1.05 + 0.05, n.bendTo ? n.bendTo - n.midi : 0);
+        const at = t;
+        this.at(at + 0.01, () => onNote(i));
+      }
+      t += len;
+    });
+    this.at(t + 0.3, () => onNote(-1));
   }
 
   /** Play a melodic run; `onNote(i)` fires as each note sounds, `onNote(-1)` at the end. */

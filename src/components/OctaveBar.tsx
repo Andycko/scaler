@@ -3,7 +3,7 @@ import type { Pattern } from '../theory/positions';
 import { octaveColor } from './colors';
 import type { LabelMode } from './Fretboard';
 
-export type GroupMode = 'octaves' | 'boxes';
+export type GroupMode = 'octaves' | 'boxes' | 'licks';
 
 interface Props {
   mode: GroupMode;
@@ -11,6 +11,7 @@ interface Props {
   groups: OctaveGroup[];
   patterns: Pattern[];
   patternKind: 'box' | '3nps';
+  licks: { name: string; style: string }[];
   focus: Set<number>;
   onToggle: (g: number | 'all') => void;
   labelMode: LabelMode;
@@ -27,12 +28,15 @@ export function OctaveBar(p: Props) {
           note: g.partial ? 'partial' : '',
           title: g.partial ? 'Partial octave (not every note fits on the neck)' : 'Full octave',
         }))
-      : p.patterns.map((pt) => ({
-          index: pt.index,
-          label: pt.label,
-          note: pt.first ? `fr ${pt.first.minFret}–${pt.first.maxFret}` : '',
-          title: p.patternKind === 'box' ? 'Box shape: 2 notes per string' : '3 notes per string',
-        }));
+      : p.mode === 'boxes'
+        ? p.patterns.map((pt) => ({
+            index: pt.index,
+            label: pt.label,
+            note: pt.first ? `fr ${pt.first.minFret}–${pt.first.maxFret}` : '',
+            title: p.patternKind === 'box' ? 'Box shape: 2 notes per string' : '3 notes per string',
+          }))
+        : p.licks.map((l, i) => ({ index: i, label: l.name, note: '', title: l.style }));
+  const licks = p.mode === 'licks';
   return (
     <div className="octave-bar">
       <div className="octaves" role="group" aria-label={p.mode === 'octaves' ? 'Octave focus' : 'Box shape focus'}>
@@ -43,15 +47,20 @@ export function OctaveBar(p: Props) {
           <button className={p.mode === 'boxes' ? 'on' : ''} onClick={() => p.onMode('boxes')}>
             {p.patternKind === 'box' ? 'Boxes' : 'Patterns'}
           </button>
+          <button className={licks ? 'on' : ''} onClick={() => p.onMode('licks')}>
+            Licks
+          </button>
         </div>
-        <button className={`oct-chip all ${focus.size === 0 ? 'on' : ''}`} onClick={() => p.onToggle('all')}>
-          All
-        </button>
+        {!licks && (
+          <button className={`oct-chip all ${focus.size === 0 ? 'on' : ''}`} onClick={() => p.onToggle('all')}>
+            All
+          </button>
+        )}
         {items.map((it) => (
           <button
             key={it.index}
-            className={`oct-chip ${focus.has(it.index) ? 'on' : ''} ${focus.size && !focus.has(it.index) ? 'dim' : ''}`}
-            style={{ ['--oc' as string]: octaveColor(it.index) }}
+            className={`oct-chip ${focus.has(it.index) ? 'on' : ''} ${focus.size && !focus.has(it.index) ? 'dim' : ''} ${licks ? 'lick-chip' : ''}`}
+            style={{ ['--oc' as string]: octaveColor(licks ? 0 : it.index) }}
             onClick={() => p.onToggle(it.index)}
             title={it.title}
           >
@@ -60,6 +69,7 @@ export function OctaveBar(p: Props) {
             {it.note && <span className="partial">{it.note}</span>}
           </button>
         ))}
+        {!licks && (
         <span
           className="legend"
           title={p.mode === 'octaves' ? 'A root note closes one octave and opens the next' : 'Notes shared by neighbouring shapes are split'}
@@ -71,6 +81,7 @@ export function OctaveBar(p: Props) {
           </svg>
           {p.mode === 'octaves' ? 'shared root' : 'shared note'}
         </span>
+        )}
       </div>
       <div className="seg" role="group" aria-label="Note labels">
         {(['names', 'degrees', 'none'] as LabelMode[]).map((m) => (

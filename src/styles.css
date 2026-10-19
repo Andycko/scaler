@@ -1558,3 +1558,147 @@ legend {
     grid-column: 1 / -1;
   }
 }
+
+/* ── Licks ─────────────────────────────────────────────── */
+.lick-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.lick-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.lick-panel h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 16px;
+}
+
+.lick-style,
+.lick-tip {
+  margin: 1px 0 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.tab-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-strip {
+  display: block;
+  font-family: var(--sans);
+}
+
+.tab-line {
+  stroke: #b8a68a;
+  stroke-width: 1;
+}
+
+.tab-bar {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.tab-name {
+  font-size: 10px;
+  fill: var(--ink-soft);
+  font-weight: 700;
+}
+
+.tab-note rect {
+  fill: var(--card);
+}
+
+.tab-note text {
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.tab-note.now rect {
+  fill: var(--accent);
+}
+
+.tab-note.now text:not(.tab-degree):not(.tab-bend) {
+  fill: var(--accent-ink);
+}
+
+.tab-note .tab-bend {
+  font-size: 9px;
+  fill: var(--accent);
+}
+
+.tab-note .tab-degree {
+  font-size: 9.5px;
+  font-weight: 500;
+  fill: var(--ink-soft);
+}
+
+.oct-chip.lick-chip {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-height: 500px) {
+  .lick-panel {
+    padding: 4px 10px 6px;
+  }
+
+  .lick-tip {
+    display: none;
+  }
+}
+
+/* Phone landscape: keep the lick card compact so the board stays big */
+@media (max-height: 500px) {
+  .board-col {
+    overflow-y: auto;
+  }
+
+  .licks-mode .octave-bar > .seg {
+    display: none;
+  }
+
+  .lick-panel {
+    gap: 2px;
+  }
+
+  .lick-panel header {
+    align-items: center;
+  }
+
+  .lick-panel h3 {
+    font-size: 14px;
+    display: inline;
+  }
+
+  .lick-style {
+    display: inline;
+    margin-left: 8px;
+    font-size: 11.5px;
+  }
+
+  .lick-panel .chip-btn {
+    height: 26px;
+  }
+
+  .tab-strip {
+    height: 74px;
+    width: auto;
+  }
+}

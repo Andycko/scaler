@@ -4,6 +4,7 @@ import { ChordPanel } from './components/ChordPanel';
 import { BOTTOM, type ChordHighlight, DEFAULT_SP, Fretboard, type LabelMode, TOP, W, posKey } from './components/Fretboard';
 import { Icon } from './components/Icon';
 import { InstallDialog } from './components/InstallDialog';
+import { LickPanel } from './components/LickPanel';
 import { type GroupMode, OctaveBar } from './components/OctaveBar';
 import { ScaleInfo } from './components/ScaleInfo';
 import { SettingsDialog } from './components/SettingsDialog';
@@ -12,6 +13,7 @@ import { usePersistent } from './state';
 import type { Chord } from './theory/chords';
 import { fingerRun } from './theory/fingering';
 import { TUNINGS, computeFretboard, groupRuns } from './theory/fretboard';
+import { licksFor, placeLick } from './theory/licks';
 import { computePositions } from './theory/positions';
 import { KEY_CHOICES, mod, noteName, pitchClass } from './theory/notes';
 import { FAMILIES, autoRootSpelling, buildScale, getFamily } from './theory/scales';
@@ -36,6 +38,8 @@ export default function App() {
   const [focusArr, setFocusArr] = useState<number[]>([]);
   const [groupMode, setGroupMode] = usePersistent<GroupMode>('groupMode', 'octaves');
   const [boxFocusArr, setBoxFocusArr] = useState<number[]>([0]);
+  const [lickIdx, setLickIdx] = useState(0);
+  const [lickCurrent, setLickCurrent] = useState(-1);
   const [chord, setChord] = useState<Chord | null>(null);
   const [playing, setPlaying] = useState<Set<string>>(new Set());
   const [isPlayingRun, setIsPlayingRun] = useState(false);
@@ -86,10 +90,19 @@ export default function App() {
     () => new Set(boxFocusArr.filter((g) => g < positions.patterns.length)),
     [boxFocusArr, positions.patterns.length],
   );
-  const boxes = useMemo(
-    () => (groupMode === 'boxes' ? { membership: positions.membership, count: positions.patterns.length, focus: boxFocus } : null),
-    [groupMode, positions, boxFocus],
-  );
+  const licks = useMemo(() => licksFor(mode.id), [mode.id]);
+  const lick = licks.length ? licks[Math.min(lickIdx, licks.length - 1)] : null;
+  const lickNotes = useMemo(() => (lick ? placeLick(lick, scale, tuning, frets) : []), [lick, scale, tuning, frets]);
+  const boxes = useMemo(() => {
+    if (groupMode === 'boxes') return { membership: positions.membership, count: positions.patterns.length, focus: boxFocus };
+    if (groupMode === 'licks') {
+      // the lick's notes in one colour, everything else dimmed
+      const membership = new Map<string, number[]>();
+      for (const n of lickNotes) if (!n.rest) membership.set(posKey(n.string, n.fret), [0]);
+      return { membership, count: 1, focus: new Set([0]) };
+    }
+    return null;
+  }, [groupMode, positions, boxFocus, lickNotes]);
 
   useEffect(() => synth.setVolume(volume), [volume]);
   useEffect(() => synth.setTone(tone), [tone]);
@@ -99,6 +112,7 @@ export default function App() {
     setPlaying(new Set());
     setIsPlayingRun(false);
     setProgPlaying(null);
+    setLickCurrent(-1);
   }, []);
 
   // changing the scale invalidates playback and chord highlights
@@ -110,6 +124,21 @@ export default function App() {
   const playScale = () => {
     if (isPlayingRun) return stopAll();
     stopAll();
+    if (groupMode === 'licks') {
+      if (!lickNotes.length) return;
+      setIsPlayingRun(true);
+      synth.playLick(lickNotes, bpm, (i) => {
+        if (i < 0) {
+          setPlaying(new Set());
+          setLickCurrent(-1);
+          setIsPlayingRun(false);
+        } else {
+          setLickCurrent(i);
+          setPlaying(new Set([posKey(lickNotes[i].string, lickNotes[i].fret)]));
+        }
+      });
+      return;
+    }
     const midis: number[] = [];
     const keys: string[] = [];
     const push = (seq: { m: number; k: string }[]) =>
@@ -159,6 +188,13 @@ export default function App() {
   };
 
   const toggleFocus = (g: number | 'all') => {
+    if (groupMode === 'licks') {
+      if (g !== 'all') {
+        stopAll();
+        setLickIdx(g);
+      }
+      return;
+    }
     const set = groupMode === 'boxes' ? setBoxFocusArr : setFocusArr;
     if (g === 'all') return set([]);
     set((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g].sort((a, b) => a - b)));
@@ -289,7 +325,7 @@ export default function App() {
       </header>
 
       <main className={`stage ${chordsOpen ? 'with-panel' : ''}`}>
-        <div className="board-col">
+        <div className={`board-col ${groupMode === 'licks' ? 'licks-mode' : ''}`}>
           <ScaleInfo scale={scale} onPlayNote={(m) => synth.pluck(m)} extra={chordStrip} />
           <div
             className="board-wrap"
@@ -319,11 +355,22 @@ export default function App() {
             groups={model.groups}
             patterns={positions.patterns}
             patternKind={positions.kind}
-            focus={groupMode === 'boxes' ? boxFocus : focus}
+            focus={groupMode === 'boxes' ? boxFocus : groupMode === 'licks' ? new Set([licks.indexOf(lick!)]) : focus}
+            licks={licks}
             onToggle={toggleFocus}
             labelMode={labelMode}
             onLabelMode={setLabelMode}
           />
+          {groupMode === 'licks' && (
+            <LickPanel
+              lick={lick}
+              notes={lickNotes}
+              stringNames={tuning.names.map((n) => n.replace('#', '♯').replace('b', '♭'))}
+              current={lickCurrent}
+              playing={isPlayingRun}
+              onPlay={playScale}
+            />
+          )}
         </div>
         {chordsOpen && (
           <ChordPanel
