@@ -1638,8 +1638,28 @@ legend {
 }
 
 .tab-note .tab-bend {
-  font-size: 9px;
+  font-size: 9.5px;
+  font-weight: 700;
   fill: var(--accent);
+}
+
+.tab-arrow {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+}
+
+.tab-arrowhead {
+  fill: var(--accent);
+}
+
+.tab-note.now .tab-arrow {
+  stroke: var(--ink);
+}
+
+.tab-note.now .tab-arrowhead,
+.tab-note.now .tab-bend {
+  fill: var(--ink);
 }
 
 .tab-note .tab-degree {
@@ -1698,7 +1718,7 @@ legend {
   }
 
   .tab-strip {
-    height: 74px;
+    height: 88px;
     width: auto;
   }
 }
