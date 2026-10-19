@@ -3,12 +3,13 @@ import { midiToFrequency } from '../theory/notes';
 /**
  * Local guitar synth — no samples to download.
  *
- * Plucked tones use Karplus–Strong with a fractional delay line (so every
- * note is in tune), a pick-position comb on the excitation and an adjustable
- * loss filter. Several variants of each note are rendered and picked at
- * random, velocities and strums are humanised, and the voice runs through a
- * guitar-body EQ, optional amp drive, a tone filter and a generated room
- * reverb. The "keys" tone is a small FM electric piano.
+ * Plucked tones use commuted Karplus–Strong synthesis: a pick/finger pulse,
+ * shaped by the pick position and (for acoustic tones) a modelled guitar
+ * body, drives a tuned fractional-delay string. Electric tones add a pickup
+ * comb filter and run through a preamp gain stage, a valve-style clipper and
+ * a speaker-cabinet filter. Several variants of each note are rendered and
+ * picked at random, playing is humanised, and everything goes through a
+ * generated room reverb. The "keys" tone is a small FM electric piano.
  */
 
 type Listener = (index: number) => void;
@@ -18,18 +19,20 @@ export interface TonePreset {
   name: string;
   description: string;
   kind: 'pluck' | 'fm';
-  /** Excitation low-pass (0..1, higher = brighter pick). */
+  /** Pick brightness (0..1): how sharp and noisy the pluck is. */
   pick: number;
-  /** Pick position as a fraction of the string (comb filter on the excitation). */
+  /** Pick position as a fraction of the string length (comb filter on the excitation). */
   pickPos: number;
-  /** Loop filter: 0.5 = darkest classic KS, lower = brighter, longer-ringing highs. */
+  /** Loop filter: 0.5 = darkest, lower = brighter, longer-ringing highs. */
   damping: number;
   /** Multiplier on the decay time. */
   sustain: number;
-  /** Final low-pass cutoff (Hz). */
+  /** Final low-pass cutoff (Hz) — for amp tones this is the speaker cabinet. */
   tone: number;
-  /** Guitar-body resonance amount (0..1). */
+  /** Acoustic guitar-body resonance (0..1), synthesised into every pluck. */
   body: number;
+  /** Magnetic pickup position as a fraction of the string (0 = acoustic, no pickup). */
+  pickup: number;
   /** Amp drive (0 = clean). */
   drive: number;
   /** Reverb send (0..1). */
@@ -38,83 +41,85 @@ export interface TonePreset {
   level: number;
 }
 
+const tone = (t: Omit<TonePreset, 'kind'> & { kind?: TonePreset['kind'] }): TonePreset => ({ kind: 'pluck', ...t });
+
 export const TONES: TonePreset[] = [
-  {
+  tone({
     id: 'nylon',
     name: 'Nylon classical',
     description: 'Soft, round and warm — a classical guitar played with the fingers.',
-    kind: 'pluck',
-    pick: 0.22,
-    pickPos: 0.2,
+    pick: 0.25,
+    pickPos: 0.17,
     damping: 0.5,
-    sustain: 0.9,
-    tone: 3000,
-    body: 0.9,
+    sustain: 0.95,
+    tone: 4200,
+    body: 1,
+    pickup: 0,
     drive: 0,
-    reverb: 0.28,
-    level: 1,
-  },
-  {
+    reverb: 0.26,
+    level: 2.6,
+  }),
+  tone({
     id: 'steel',
     name: 'Steel-string acoustic',
     description: 'Bright and ringing, picked near the bridge.',
-    kind: 'pluck',
-    pick: 0.65,
+    pick: 0.7,
     pickPos: 0.12,
-    damping: 0.32,
-    sustain: 1.15,
-    tone: 7000,
-    body: 0.7,
+    damping: 0.3,
+    sustain: 1.25,
+    tone: 9000,
+    body: 0.85,
+    pickup: 0,
     drive: 0,
     reverb: 0.22,
-    level: 0.85,
-  },
-  {
+    level: 2.7,
+  }),
+  tone({
     id: 'jazz',
     name: 'Jazz archtop',
     description: 'Dark, mellow neck-pickup sound with a short sustain.',
-    kind: 'pluck',
     pick: 0.3,
-    pickPos: 0.28,
+    pickPos: 0.25,
     damping: 0.5,
-    sustain: 0.75,
-    tone: 1700,
+    sustain: 0.8,
+    tone: 2200,
     body: 0.35,
-    drive: 0,
+    pickup: 0.3,
+    drive: 0.04,
     reverb: 0.18,
-    level: 1.25,
-  },
-  {
+    level: 2.5,
+  }),
+  tone({
     id: 'clean',
     name: 'Clean electric',
-    description: 'Glassy single-coil clean with a little room.',
-    kind: 'pluck',
-    pick: 0.55,
-    pickPos: 0.16,
-    damping: 0.38,
-    sustain: 1.4,
-    tone: 4800,
-    body: 0.1,
+    description: 'Glassy single-coil clean through a valve amp, with a little room.',
+    pick: 0.6,
+    pickPos: 0.15,
+    damping: 0.34,
+    sustain: 1.6,
+    tone: 5200,
+    body: 0,
+    pickup: 0.2,
     drive: 0.12,
     reverb: 0.26,
-    level: 0.9,
-  },
-  {
+    level: 2.2,
+  }),
+  tone({
     id: 'crunch',
     name: 'Crunch / blues amp',
-    description: 'Overdriven valve-amp tone for bluesy soloing.',
-    kind: 'pluck',
-    pick: 0.6,
+    description: 'Overdriven valve amp through a 4×12 cab — singing sustain for blues and rock.',
+    pick: 0.65,
     pickPos: 0.14,
-    damping: 0.36,
-    sustain: 1.6,
-    tone: 3400,
-    body: 0.05,
-    drive: 0.75,
+    damping: 0.3,
+    sustain: 2.4,
+    tone: 4300,
+    body: 0,
+    pickup: 0.18,
+    drive: 0.85,
     reverb: 0.2,
-    level: 0.55,
-  },
-  {
+    level: 0.36,
+  }),
+  tone({
     id: 'keys',
     name: 'Electric piano',
     description: 'Bell-like FM electric piano — a smooth alternative to guitar.',
@@ -123,12 +128,13 @@ export const TONES: TonePreset[] = [
     pickPos: 0,
     damping: 0,
     sustain: 1,
-    tone: 5000,
+    tone: 6000,
     body: 0,
+    pickup: 0,
     drive: 0,
     reverb: 0.25,
     level: 0.9,
-  },
+  }),
 ];
 
 export const DEFAULT_TONE = 'nylon';
@@ -140,7 +146,11 @@ class Synth {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
   private input!: GainNode;
+  private pre!: GainNode;
   private shaper!: WaveShaperNode;
+  private post!: GainNode;
+  private cabLow!: BiquadFilterNode;
+  private toneFilter2!: BiquadFilterNode;
   private bodyLow!: BiquadFilterNode;
   private bodyMid!: BiquadFilterNode;
   private toneFilter!: BiquadFilterNode;
@@ -160,25 +170,35 @@ class Synth {
       const ctx = new Ctor();
       this.ctx = ctx;
       this.input = ctx.createGain();
+      // amp: preamp gain → valve-style saturation → speaker cabinet
+      this.pre = ctx.createGain();
       this.shaper = ctx.createWaveShaper();
       this.shaper.oversample = '4x';
-      // guitar body: air resonance (~110 Hz) and top-plate resonance (~220 Hz), slight scoop at 1.2 kHz
+      this.post = ctx.createGain();
+      this.cabLow = ctx.createBiquadFilter();
+      this.cabLow.type = 'highpass';
+      this.cabLow.frequency.value = 70;
+      this.cabLow.Q.value = 0.7;
+      // light body warmth (the real body resonance is synthesised into each pluck)
       this.bodyLow = ctx.createBiquadFilter();
       this.bodyLow.type = 'peaking';
-      this.bodyLow.frequency.value = 110;
-      this.bodyLow.Q.value = 1.4;
+      this.bodyLow.frequency.value = 120;
+      this.bodyLow.Q.value = 0.9;
       this.bodyMid = ctx.createBiquadFilter();
       this.bodyMid.type = 'peaking';
-      this.bodyMid.frequency.value = 230;
-      this.bodyMid.Q.value = 1.6;
+      this.bodyMid.frequency.value = 1800;
+      this.bodyMid.Q.value = 0.9;
       const scoop = ctx.createBiquadFilter();
       scoop.type = 'peaking';
-      scoop.frequency.value = 1200;
+      scoop.frequency.value = 500;
       scoop.Q.value = 0.8;
-      scoop.gain.value = -2;
+      scoop.gain.value = -1.5;
       this.toneFilter = ctx.createBiquadFilter();
       this.toneFilter.type = 'lowpass';
-      this.toneFilter.Q.value = 0.6;
+      this.toneFilter.Q.value = 0.7;
+      this.toneFilter2 = ctx.createBiquadFilter();
+      this.toneFilter2.type = 'lowpass';
+      this.toneFilter2.Q.value = 0.5;
       this.trim = ctx.createGain();
       this.dry = ctx.createGain();
       this.wet = ctx.createGain();
@@ -192,7 +212,17 @@ class Synth {
       this.master = ctx.createGain();
       this.master.gain.value = this.volume;
 
-      this.input.connect(this.shaper).connect(this.bodyLow).connect(this.bodyMid).connect(scoop).connect(this.toneFilter).connect(this.trim);
+      this.input
+        .connect(this.pre)
+        .connect(this.shaper)
+        .connect(this.post)
+        .connect(this.cabLow)
+        .connect(this.bodyLow)
+        .connect(this.bodyMid)
+        .connect(scoop)
+        .connect(this.toneFilter)
+        .connect(this.toneFilter2)
+        .connect(this.trim);
       this.trim.connect(this.dry).connect(comp);
       this.trim.connect(reverb).connect(this.wet).connect(comp);
       comp.connect(this.master).connect(ctx.destination);
@@ -219,15 +249,16 @@ class Synth {
     return buf;
   }
 
+  /** Valve-style soft clipper (slightly asymmetric for even harmonics). */
   private driveCurve(amount: number): Float32Array<ArrayBuffer> | null {
     if (amount <= 0) return null;
-    const n = 2048;
+    const n = 4096;
     const curve = new Float32Array(n);
-    const k = 1 + amount * 18;
+    const bias = 0.12 * amount;
+    const norm = Math.tanh(1 + bias) - Math.tanh(bias);
     for (let i = 0; i < n; i++) {
       const x = (i / (n - 1)) * 2 - 1;
-      // asymmetric soft clip – a touch of even harmonics like a valve stage
-      curve[i] = (Math.tanh(k * x + 0.15 * amount) - Math.tanh(0.15 * amount)) / Math.tanh(k);
+      curve[i] = (Math.tanh(x + bias) - Math.tanh(bias)) / norm;
     }
     return curve;
   }
@@ -236,10 +267,18 @@ class Synth {
     if (!this.ctx) return;
     const p = this.preset;
     const t = this.ctx.currentTime;
+    const amp = p.drive > 0;
     this.shaper.curve = this.driveCurve(p.drive);
-    this.bodyLow.gain.setTargetAtTime(9 * p.body, t, 0.02);
-    this.bodyMid.gain.setTargetAtTime(5 * p.body, t, 0.02);
+    // preamp gain drives the clipper hard for crunch; makeup gain keeps the level steady
+    const gain = amp ? 1 + p.drive * p.drive * 40 : 1;
+    this.pre.gain.setTargetAtTime(gain, t, 0.02);
+    this.post.gain.setTargetAtTime(amp ? 0.5 / Math.min(1, 0.5 + p.drive) : 1, t, 0.02);
+    this.cabLow.frequency.setTargetAtTime(amp ? 85 : 40, t, 0.02);
+    this.bodyLow.gain.setTargetAtTime(amp ? 3 + p.drive * 2 : 2 * p.body, t, 0.02);
+    this.bodyMid.gain.setTargetAtTime(amp ? 2.5 : p.body ? 1.5 : 0, t, 0.02);
+    // cabinet = two stacked low-passes (steep roll-off removes fizz); acoustic tones use one gentle one
     this.toneFilter.frequency.setTargetAtTime(p.tone, t, 0.02);
+    this.toneFilter2.frequency.setTargetAtTime(amp ? p.tone * 1.25 : 20000, t, 0.02);
     this.trim.gain.setTargetAtTime(p.level, t, 0.02);
     this.dry.gain.setTargetAtTime(1 - p.reverb * 0.5, t, 0.02);
     this.wet.gain.setTargetAtTime(p.reverb * 1.6, t, 0.02);
@@ -425,44 +464,122 @@ class Synth {
 
 export const synth = new Synth();
 
+/** Small seeded PRNG so the synthesised guitar body is the same on every load. */
+function seeded(seed: number) {
+  let x = seed >>> 0;
+  return () => {
+    x = (x * 1664525 + 1013904223) >>> 0;
+    return x / 4294967296;
+  };
+}
+
+const bodyCache = new Map<number, Float32Array>();
+
 /**
- * Karplus–Strong pluck. The loop filter is a 2-tap weighted average whose
- * phase delay is `damping` samples, so the delay line is shortened by that
- * amount to keep the loop exactly one period long (in tune). `detuneCents`
- * defaults to a tiny random humanisation.
+ * Impulse response of an acoustic guitar body, built from its resonant
+ * modes: the Helmholtz air resonance (~100 Hz), the main top-plate modes
+ * (~200–550 Hz) and a dense cloud of short, quieter high modes.
+ */
+export function guitarBodyIR(sr: number): Float32Array {
+  const hit = bodyCache.get(sr);
+  if (hit) return hit;
+  const len = Math.floor(sr * 0.12);
+  const ir = new Float32Array(len);
+  const modes: [number, number, number][] = [
+    [102, 0.09, 1],
+    [195, 0.06, 0.8],
+    [235, 0.05, 0.55],
+    [390, 0.035, 0.45],
+    [470, 0.03, 0.35],
+    [540, 0.025, 0.3],
+  ];
+  const r = seeded(7);
+  for (let i = 0; i < 48; i++) {
+    const f = 600 * Math.pow(9, r()); // 600 Hz – 5.4 kHz, log-spaced at random
+    modes.push([f, 0.004 + r() * 0.014, (0.25 + 0.3 * r()) * Math.pow(600 / f, 0.35)]);
+  }
+  for (const [f, tau, amp] of modes) {
+    const ph = r() * Math.PI * 2;
+    const w = (2 * Math.PI * f) / sr;
+    for (let n = 0; n < len; n++) ir[n] += amp * Math.exp(-n / (tau * sr)) * Math.sin(w * n + ph);
+  }
+  ir[0] += 1.2; // direct sound
+  let e = 0;
+  for (let n = 0; n < len; n++) e += ir[n] * ir[n];
+  const g = 1 / Math.sqrt(e);
+  for (let n = 0; n < len; n++) ir[n] *= g;
+  bodyCache.set(sr, ir);
+  return ir;
+}
+
+/**
+ * Plucked string (extended Karplus–Strong, "commuted" synthesis).
+ *
+ * The excitation is a short pick/finger pulse, shaped by the pick position
+ * and — for acoustic tones — convolved with the guitar-body response, then
+ * fed into a tuned delay-line string. The loop filter is a 2-tap weighted
+ * average whose phase delay is `damping` samples, so the delay line is
+ * shortened by that amount to keep every note exactly in tune. Electric
+ * tones take the output through a pickup comb filter instead of a body.
+ * `detuneCents` defaults to a tiny random humanisation.
  */
 export function pluckSamples(p: TonePreset, midi: number, sr: number, detuneCents = rand(-3, 3)): Float32Array<ArrayBuffer> {
   const freq = midiToFrequency(midi) * Math.pow(2, detuneCents / 1200);
   const len = Math.floor(sr * 3.2);
-  const y = new Float32Array(len);
   const period = sr / freq;
   const b = p.damping;
   const D = period - b;
-  const t60 = Math.max(0.7, 3.8 - (midi - 40) * 0.05) * p.sustain;
+  const t60 = Math.max(0.8, 4.2 - (midi - 40) * 0.055) * p.sustain;
   const loss = Math.pow(10, -3 / (t60 * freq));
 
-  // excitation: low-passed noise burst shaped by the pick position (comb filter)
-  const exLen = Math.ceil(period) + 2;
-  const ex = new Float32Array(exLen);
+  // pick / finger pulse: a smooth bump (finger flesh) blended with filtered noise (pick edge)
+  const pulseLen = Math.max(4, Math.round(sr * (0.0003 + (1 - p.pick) * 0.0011)));
+  const pulse = new Float32Array(pulseLen);
   let lp = 0;
-  const k = Math.min(0.98, p.pick * rand(0.85, 1.15));
-  for (let n = 0; n < exLen; n++) {
+  const k = 0.15 + 0.8 * p.pick * rand(0.9, 1.1);
+  for (let n = 0; n < pulseLen; n++) {
     lp += k * (Math.random() * 2 - 1 - lp);
-    ex[n] = lp;
+    const bump = 0.5 - 0.5 * Math.cos((2 * Math.PI * (n + 0.5)) / pulseLen); // raised cosine: smooth, no hollow spectral notches
+    pulse[n] = (1 - p.pick) * bump + p.pick * lp * 1.6 * bump;
   }
+  // pick position: a plucked point leaves out harmonics with nodes there
   const comb = Math.max(1, Math.round(p.pickPos * period));
-  for (let n = 0; n < exLen; n++) y[n] = ex[n] - (n >= comb ? ex[n - comb] : 0) * 0.9;
+  const shaped = new Float32Array(pulseLen + comb);
+  for (let n = 0; n < shaped.length; n++) shaped[n] = (n < pulseLen ? pulse[n] : 0) - (n >= comb && n - comb < pulseLen ? pulse[n - comb] : 0);
 
-  for (let n = exLen; n < len; n++) {
+  // acoustic body: convolve the excitation with the body response
+  let ex: Float32Array = shaped;
+  if (p.body > 0) {
+    const ir = guitarBodyIR(sr);
+    const out = new Float32Array(shaped.length + ir.length);
+    for (let i = 0; i < shaped.length; i++) {
+      const v = shaped[i];
+      if (v === 0) continue;
+      for (let j = 0; j < ir.length; j++) out[i + j] += v * ir[j];
+    }
+    ex = new Float32Array(out.length);
+    for (let n = 0; n < out.length; n++) ex[n] = p.body * out[n] + (1 - p.body) * (n < shaped.length ? shaped[n] : 0);
+  }
+
+  // the string: tuned delay line with fractional (linearly interpolated) read-out
+  const y = new Float32Array(len);
+  const at = (i: number) => (i >= 0 ? y[i] : 0);
+  for (let n = 0; n < len; n++) {
     const idx = n - D;
     const i0 = Math.floor(idx);
     const frac = idx - i0;
-    const a = y[i0] * (1 - frac) + y[i0 + 1] * frac;
-    const c = y[i0 - 1] * (1 - frac) + y[i0] * frac;
-    y[n] = loss * ((1 - b) * a + b * c);
+    const a = at(i0) * (1 - frac) + at(i0 + 1) * frac;
+    const c = at(i0 - 1) * (1 - frac) + at(i0) * frac;
+    y[n] = (n < ex.length ? ex[n] : 0) + loss * ((1 - b) * a + b * c);
+  }
+
+  if (p.pickup > 0) {
+    // magnetic pickup: senses string velocity at one point → comb filter on the output
+    const d = Math.max(1, Math.round(p.pickup * period));
+    for (let n = len - 1; n >= d; n--) y[n] = y[n] - y[n - d];
   }
   // soft attack edge (removes the click of a perfectly square start)
-  const atk = Math.floor(sr * 0.0015);
+  const atk = Math.floor(sr * 0.001);
   for (let n = 0; n < atk; n++) y[n] *= n / atk;
   return y;
 }
