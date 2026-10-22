@@ -31,7 +31,18 @@ export interface FretboardProps {
   spacing?: number;
   /** Colour by box shape / scale position instead of by octave. */
   boxes?: { membership: Map<string, number[]>; count: number; focus: Set<number> } | null;
+  /** Show every note on the neck, not just the scale ("All notes" view). */
+  chromatic?: { highlight: boolean; rootPc: number; preferFlats: boolean } | null;
+  /** Click on a non-scale note (All notes view). */
+  onPlayMidi?: (midi: number) => void;
 }
+
+const SHARP_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+const FLAT_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
+const CHROMATIC_DEGREES = ['1', '♭2', '2', '♭3', '3', '4', '♯4', '5', '♭6', '6', '♭7', '7'];
+const ascii = (t: string) => t.replace(/♯/g, '#').replace(/♭/g, 'b');
+const NEUTRAL = '#efe4cb';
+const NEUTRAL_EDGE = '#b8a68a';
 
 interface Slice {
   color: string;
@@ -110,6 +121,7 @@ function FretboardImpl(p: FretboardProps) {
   const r = Math.min(SP * 0.42, minWidth(p.frets) * 0.44, 17);
   const inFocus = (g: number | null) => g !== null && (p.focus.size === 0 || p.focus.has(g));
   const shown = (fn: FretNote) => !p.onlyGroups || p.onlyGroups.has(fn.group) || (fn.endsGroup !== null && p.onlyGroups.has(fn.endsGroup));
+  const scaleKeys = new Set(p.model.notes.map((n) => posKey(n.string, n.fret)));
   const label = (fn: FretNote) =>
     p.labelMode === 'none' ? '' : p.labelMode === 'names' ? (p.print ? noteNameAscii(fn.note) : noteName(fn.note)) : p.print ? degreeLabelAscii(fn.degree) : degreeLabel(fn.degree);
   const font = "'Karla', Helvetica, Arial, sans-serif";
@@ -215,6 +227,40 @@ function FretboardImpl(p: FretboardProps) {
           </text>
         </g>
       ))}
+      {/* every other note (All notes view) */}
+      {p.chromatic &&
+        p.tuning.strings.flatMap((open, st) =>
+          Array.from({ length: p.frets + 1 }, (_, f) => {
+            const midi = open + f;
+            const pc = mod(midi, 12);
+            if (scaleKeys.has(posKey(st, f)) || p.chord?.outside.has(pc)) return null;
+            const chromatic = p.chromatic!;
+            const name = (chromatic.preferFlats ? FLAT_NAMES : SHARP_NAMES)[pc];
+            const deg = CHROMATIC_DEGREES[mod(pc - chromatic.rootPc, 12)];
+            const raw = p.labelMode === 'names' ? name : p.labelMode === 'degrees' ? deg : '';
+            const lab = p.print ? ascii(raw) : raw;
+            const cx = mx(noteX(f));
+            const cy = yOf(st);
+            const isPlaying = p.playing?.has(posKey(st, f));
+            return (
+              <g
+                key={`c${st}-${f}`}
+                opacity={p.chord ? 0.4 : 0.92}
+                className={p.print ? undefined : 'fb-note'}
+                onClick={p.onPlayMidi ? () => p.onPlayMidi!(midi) : undefined}
+                style={p.onPlayMidi ? { cursor: 'pointer' } : undefined}
+              >
+                {isPlaying && <circle cx={cx} cy={cy} r={r + 7} fill="#fff3c4" opacity={0.9} />}
+                <circle cx={cx} cy={cy} r={r - 1.5} fill={NEUTRAL} stroke={NEUTRAL_EDGE} strokeWidth={1} />
+                {lab && (
+                  <text x={cx} y={cy + 4} fontSize={lab.length > 2 ? 9.5 : 11.5} textAnchor="middle" fill={INK} fontWeight={700} pointerEvents="none">
+                    {lab}
+                  </text>
+                )}
+              </g>
+            );
+          }),
+        )}
       {/* scale notes */}
       {p.model.notes.filter(shown).map((fn) => {
         const cx = mx(noteX(fn.fret));
@@ -245,6 +291,11 @@ function FretboardImpl(p: FretboardProps) {
                 ]
               : [{ color: octaveColor(fn.group), on: upperFocus }];
         }
+        const plain = p.chromatic && !p.chromatic.highlight;
+        if (plain) {
+          slices = [{ color: NEUTRAL, on: true }];
+          anyFocus = true;
+        }
         if (p.leftHanded) slices = [...slices].reverse();
         const chordTone = p.chord?.tones.get(mod(fn.midi, 12));
         const chordDim = p.chord && chordTone === undefined;
@@ -266,9 +317,9 @@ function FretboardImpl(p: FretboardProps) {
               cy={cy}
               r={fn.isRoot ? r - 0.2 : r - 0.5}
               fill="none"
-              stroke={fn.isRoot ? INK : CREAM}
+              stroke={fn.isRoot ? INK : plain ? NEUTRAL_EDGE : CREAM}
               strokeWidth={fn.isRoot ? 2.4 : 1}
-              opacity={fn.isRoot ? 1 : 0.55}
+              opacity={fn.isRoot || plain ? 1 : 0.55}
             />
             {lab && (
               <text
@@ -276,7 +327,7 @@ function FretboardImpl(p: FretboardProps) {
                 y={cy + 4.2}
                 fontSize={lab.length > 2 ? 10.5 : 12.5}
                 textAnchor="middle"
-                fill={CREAM}
+                fill={plain ? INK : CREAM}
                 fontWeight={700}
                 pointerEvents="none"
               >

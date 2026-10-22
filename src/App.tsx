@@ -20,6 +20,8 @@ import { FAMILIES, autoRootSpelling, buildScale, getFamily } from './theory/scal
 
 const ExportDialog = lazy(() => import('./components/ExportDialog').then((m) => ({ default: m.ExportDialog })));
 
+const NO_FOCUS = new Set<number>();
+
 export type Spelling = 'auto' | 'sharp' | 'flat';
 
 export default function App() {
@@ -39,6 +41,7 @@ export default function App() {
   const [groupMode, setGroupMode] = usePersistent<GroupMode>('groupMode', 'octaves');
   const [boxFocusArr, setBoxFocusArr] = useState<number[]>([0]);
   const [lickIdx, setLickIdx] = useState(0);
+  const [highlightScale, setHighlightScale] = usePersistent('highlightScale', true);
   const [lickCurrent, setLickCurrent] = useState(-1);
   const [chord, setChord] = useState<Chord | null>(null);
   const [playing, setPlaying] = useState<Set<string>>(new Set());
@@ -339,12 +342,18 @@ export default function App() {
                   frets={frets}
                   labelMode={labelMode}
                   leftHanded={leftHanded}
-                  focus={focus}
+                  focus={groupMode === 'all' ? NO_FOCUS : focus}
                   chord={highlight}
                   playing={playing}
                   onNote={(n) => synth.pluck(n.midi)}
                   spacing={spacing}
                   boxes={boxes}
+                  chromatic={
+                    groupMode === 'all'
+                      ? { highlight: highlightScale, rootPc: pitchClass(scale.root), preferFlats: scale.notes.some((n) => n.acc < 0) }
+                      : null
+                  }
+                  onPlayMidi={(m) => synth.pluck(m)}
                 />
               </div>
             </div>
@@ -357,6 +366,8 @@ export default function App() {
             patternKind={positions.kind}
             focus={groupMode === 'boxes' ? boxFocus : groupMode === 'licks' ? new Set([licks.indexOf(lick!)]) : focus}
             licks={licks}
+            highlightScale={highlightScale}
+            onHighlightScale={setHighlightScale}
             onToggle={toggleFocus}
             labelMode={labelMode}
             onLabelMode={setLabelMode}

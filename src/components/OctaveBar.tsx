@@ -3,7 +3,7 @@ import type { Pattern } from '../theory/positions';
 import { octaveColor } from './colors';
 import type { LabelMode } from './Fretboard';
 
-export type GroupMode = 'octaves' | 'boxes' | 'licks';
+export type GroupMode = 'octaves' | 'boxes' | 'licks' | 'all';
 
 interface Props {
   mode: GroupMode;
@@ -12,6 +12,8 @@ interface Props {
   patterns: Pattern[];
   patternKind: 'box' | '3nps';
   licks: { name: string; style: string }[];
+  highlightScale: boolean;
+  onHighlightScale: (b: boolean) => void;
   focus: Set<number>;
   onToggle: (g: number | 'all') => void;
   labelMode: LabelMode;
@@ -35,8 +37,11 @@ export function OctaveBar(p: Props) {
             note: pt.first ? `fr ${pt.first.minFret}–${pt.first.maxFret}` : '',
             title: p.patternKind === 'box' ? 'Box shape: 2 notes per string' : '3 notes per string',
           }))
-        : p.licks.map((l, i) => ({ index: i, label: l.name, note: '', title: l.style }));
+        : p.mode === 'licks'
+          ? p.licks.map((l, i) => ({ index: i, label: l.name, note: '', title: l.style }))
+          : [];
   const licks = p.mode === 'licks';
+  const all = p.mode === 'all';
   return (
     <div className="octave-bar">
       <div className="octaves" role="group" aria-label={p.mode === 'octaves' ? 'Octave focus' : 'Box shape focus'}>
@@ -50,8 +55,22 @@ export function OctaveBar(p: Props) {
           <button className={licks ? 'on' : ''} onClick={() => p.onMode('licks')}>
             Licks
           </button>
+          <button className={all ? 'on' : ''} onClick={() => p.onMode('all')}>
+            All notes
+          </button>
         </div>
-        {!licks && (
+        {all && (
+          <button
+            className={`oct-chip ${p.highlightScale ? 'on' : ''}`}
+            style={{ ['--oc' as string]: octaveColor(0) }}
+            onClick={() => p.onHighlightScale(!p.highlightScale)}
+            title="Colour the notes of the current scale"
+          >
+            <span className="swatch" />
+            Highlight scale
+          </button>
+        )}
+        {!licks && !all && (
           <button className={`oct-chip all ${focus.size === 0 ? 'on' : ''}`} onClick={() => p.onToggle('all')}>
             All
           </button>
@@ -69,7 +88,7 @@ export function OctaveBar(p: Props) {
             {it.note && <span className="partial">{it.note}</span>}
           </button>
         ))}
-        {!licks && (
+        {!licks && !all && (
         <span
           className="legend"
           title={p.mode === 'octaves' ? 'A root note closes one octave and opens the next' : 'Notes shared by neighbouring shapes are split'}
