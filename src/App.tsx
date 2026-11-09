@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_TONE, synth } from './audio/synth';
+import { DEFAULT_BASS_TONE, DEFAULT_TONE, synth } from './audio/synth';
 import { ChordPanel } from './components/ChordPanel';
 import { BOTTOM, type ChordHighlight, DEFAULT_SP, Fretboard, type LabelMode, TOP, W, posKey } from './components/Fretboard';
 import { Icon } from './components/Icon';
@@ -12,7 +12,7 @@ import { useInstall } from './install';
 import { usePersistent } from './state';
 import type { Chord } from './theory/chords';
 import { fingerRun } from './theory/fingering';
-import { TUNINGS, computeFretboard, groupRuns } from './theory/fretboard';
+import { DEFAULT_TUNING, type Instrument, TUNINGS, computeFretboard, groupRuns } from './theory/fretboard';
 import { licksFor, placeLick } from './theory/licks';
 import { computePositions } from './theory/positions';
 import { KEY_CHOICES, mod, noteName, pitchClass } from './theory/notes';
@@ -35,7 +35,8 @@ export default function App() {
   const [leftHanded, setLeftHanded] = usePersistent('lefty', false);
   const [bpm, setBpm] = usePersistent('bpm', 96);
   const [volume, setVolume] = usePersistent('volume', 0.8);
-  const [tone, setTone] = usePersistent('tone', DEFAULT_TONE);
+  const [guitarTone, setGuitarTone] = usePersistent('tone', DEFAULT_TONE);
+  const [bassTone, setBassTone] = usePersistent('bassTone', DEFAULT_BASS_TONE);
   const install = useInstall();
   const [focusArr, setFocusArr] = useState<number[]>([]);
   const [groupMode, setGroupMode] = usePersistent<GroupMode>('groupMode', 'octaves');
@@ -77,6 +78,12 @@ export default function App() {
   const family = FAMILIES.find((f) => f.id === familyId) ?? FAMILIES[0];
   const mode = family.modes.find((m) => m.id === modeId) ?? family.modes[0];
   const tuning = TUNINGS.find((t) => t.id === tuningId) ?? TUNINGS[0];
+  const instrument: Instrument = tuning.instrument;
+  const tone = instrument === 'bass' ? bassTone : guitarTone;
+  const setTone = instrument === 'bass' ? setBassTone : setGuitarTone;
+  const setInstrument = (i: Instrument) => {
+    if (i !== instrument) setTuningId(DEFAULT_TUNING[i]);
+  };
 
   const keyChoice = KEY_CHOICES[mod(keyPc, 12)];
   const root = useMemo(() => {
@@ -410,6 +417,8 @@ export default function App() {
         <SettingsDialog
           tuningId={tuning.id}
           onTuning={setTuningId}
+          instrument={instrument}
+          onInstrument={setInstrument}
           frets={frets}
           onFrets={setFrets}
           labelMode={labelMode}

@@ -19,6 +19,8 @@ export interface TonePreset {
   name: string;
   description: string;
   kind: 'pluck' | 'fm';
+  /** Which instrument the tone is offered for. */
+  instrument: 'guitar' | 'bass' | 'any';
   /** Pick brightness (0..1): how sharp and noisy the pluck is. */
   pick: number;
   /** Pick position as a fraction of the string length (comb filter on the excitation). */
@@ -41,7 +43,11 @@ export interface TonePreset {
   level: number;
 }
 
-const tone = (t: Omit<TonePreset, 'kind'> & { kind?: TonePreset['kind'] }): TonePreset => ({ kind: 'pluck', ...t });
+const tone = (t: Omit<TonePreset, 'kind' | 'instrument'> & Partial<Pick<TonePreset, 'kind' | 'instrument'>>): TonePreset => ({
+  kind: 'pluck',
+  instrument: 'guitar',
+  ...t,
+});
 
 export const TONES: TonePreset[] = [
   tone({
@@ -121,6 +127,7 @@ export const TONES: TonePreset[] = [
   }),
   tone({
     id: 'keys',
+    instrument: 'any',
     name: 'Electric piano',
     description: 'Bell-like FM electric piano — a smooth alternative to guitar.',
     kind: 'fm',
@@ -135,9 +142,43 @@ export const TONES: TonePreset[] = [
     reverb: 0.25,
     level: 0.9,
   }),
+  tone({
+    id: 'bass-finger',
+    name: 'Electric bass (fingers)',
+    description: 'Round, warm fingerstyle bass — the classic P-bass thump.',
+    instrument: 'bass',
+    pick: 0.3,
+    pickPos: 0.22,
+    damping: 0.46,
+    sustain: 2.4,
+    tone: 2400,
+    body: 0,
+    pickup: 0.14,
+    drive: 0,
+    reverb: 0.06,
+    level: 1.6,
+  }),
+  tone({
+    id: 'bass-pick',
+    name: 'Electric bass (pick)',
+    description: 'Punchy, defined picked bass for rock.',
+    instrument: 'bass',
+    pick: 0.75,
+    pickPos: 0.1,
+    damping: 0.36,
+    sustain: 2.2,
+    tone: 4200,
+    body: 0,
+    pickup: 0.1,
+    drive: 0,
+    reverb: 0.06,
+    level: 12,
+  }),
 ];
 
 export const DEFAULT_TONE = 'nylon';
+export const DEFAULT_BASS_TONE = 'bass-finger';
+const COMP_TONE = 'clean'; // guitar that strums the chords when a bass tone is selected
 const VARIANTS = 3;
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -294,12 +335,12 @@ class Synth {
     if (this.ctx) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.02);
   }
 
-  private buffer(midi: number): AudioBuffer {
+  private buffer(midi: number, preset: TonePreset = this.preset): AudioBuffer {
     const ctx = this.ensure();
-    const key = `${this.preset.id}:${midi}`;
+    const key = `${preset.id}:${midi}`;
     let set = this.cache.get(key);
     if (!set) {
-      set = Array.from({ length: VARIANTS }, () => (this.preset.kind === 'fm' ? this.renderFm(ctx, midi) : this.renderPluck(ctx, midi)));
+      set = Array.from({ length: VARIANTS }, () => (preset.kind === 'fm' ? this.renderFm(ctx, midi) : this.renderPluck(ctx, midi, preset)));
       this.cache.set(key, set);
     }
     return set[Math.floor(Math.random() * set.length)];
@@ -316,8 +357,8 @@ class Synth {
     return buf;
   }
 
-  private renderPluck(ctx: AudioContext, midi: number): AudioBuffer {
-    return this.finish(ctx, pluckSamples(this.preset, midi, ctx.sampleRate), 0.6);
+  private renderPluck(ctx: AudioContext, midi: number, preset: TonePreset = this.preset): AudioBuffer {
+    return this.finish(ctx, pluckSamples(preset, midi, ctx.sampleRate), 0.6);
   }
 
   private renderFm(ctx: AudioContext, midi: number): AudioBuffer {
@@ -325,10 +366,10 @@ class Synth {
   }
 
   /** Pluck one note `delay` seconds from now; `bend` raises the pitch by that many semitones (a string bend). */
-  pluck(midi: number, delay = 0, gain = 1, duration?: number, bend = 0) {
+  pluck(midi: number, delay = 0, gain = 1, duration?: number, bend = 0, preset?: TonePreset) {
     const ctx = this.ensure();
     const src = ctx.createBufferSource();
-    src.buffer = this.buffer(midi);
+    src.buffer = this.buffer(midi, preset);
     const g = ctx.createGain();
     const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
     const t = ctx.currentTime + delay + 0.01 + rand(0, 0.006);
@@ -359,13 +400,20 @@ class Synth {
 
   /** Strum a chord voicing (low → high), with a humanised strum speed. */
   strum(midis: number[], delay = 0, gain = 0.7, spread = 0.028, duration?: number) {
+    // chords on a bass sound muddy: when a bass tone is selected, a clean guitar strums them
+    const comp = this.preset.instrument === 'bass' ? TONES.find((t) => t.id === COMP_TONE) : undefined;
     const s = spread * rand(0.8, 1.25);
-    midis.forEach((m, i) => this.pluck(m, delay + i * s, gain * (i === 0 ? 1 : 0.8), duration));
+    midis.forEach((m, i) => this.pluck(m, delay + i * s, gain * (i === 0 ? 1 : 0.8) * (comp ? 0.45 : 1), duration, 0, comp));
   }
 
   /** A short phrase to audition a tone. */
   preview() {
     this.stop();
+    if (this.preset.instrument === 'bass') {
+      // a walking bass phrase in A
+      [33, 36, 38, 40, 43, 45, 40, 33].forEach((m, i) => this.pluck(m, i * 0.22, 0.95, 0.4));
+      return;
+    }
     [57, 60, 62, 64, 67, 69].forEach((m, i) => this.pluck(m, i * 0.18, 0.9, 0.3));
     this.strum([45, 52, 57, 60, 64], 1.25, 0.7, 0.03);
   }

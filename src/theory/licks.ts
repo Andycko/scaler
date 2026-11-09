@@ -190,8 +190,14 @@ export function licksFor(modeId: string): LickDef[] {
  */
 export function placeLick(lick: LickDef, scale: Scale, tuning: Tuning, frets: number): PlacedLickNote[] {
   const rootPc = pitchClass(scale.root);
-  let base = 48 + rootPc; // tonic between C3 and B3
   const lowest = Math.min(...tuning.strings);
+  // guitar: tonic between C3 and B3 (the classic lead register);
+  // bass: the lowest octave that fits, so the lick sits in the first-position box
+  let base = 48 + rootPc;
+  if (tuning.instrument === 'bass') {
+    const minOff = Math.min(...parseLick(lick.notes, 0).filter((n) => !n.rest).map((n) => n.midi));
+    base = lowest - minOff + mod(rootPc - (lowest - minOff), 12);
+  }
   const highest = Math.max(...tuning.strings) + frets;
   let notes = parseLick(lick.notes, base);
   const sounding = () => notes.filter((n) => !n.rest).flatMap((n) => [n.midi, n.bendTo ?? n.midi]);

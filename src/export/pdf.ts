@@ -133,7 +133,9 @@ export async function buildPdf(o: ExportOptions): Promise<jsPDF> {
   row('Formula', scale.degrees.map(degreeLabelAscii).join('   '));
   const sig = keySignatureFor(scale);
   row('Tuning', ascii(o.tuning.name));
-  row('Notation', sig ? `Treble clef 8vb (guitar sounds an octave lower); key signature of ${sig} major` : 'Treble clef 8vb (guitar sounds an octave lower); accidentals written out');
+  const bass = o.tuning.instrument === 'bass';
+  const clefText = bass ? 'Bass clef 8vb (bass guitar sounds an octave lower)' : 'Treble clef 8vb (guitar sounds an octave lower)';
+  row('Notation', sig ? `${clefText}; key signature of ${sig} major` : `${clefText}; accidentals written out`);
   y += 2;
   doc.setFont('times', 'italic');
   doc.setFontSize(10.5);
@@ -176,6 +178,7 @@ export async function buildPdf(o: ExportOptions): Promise<jsPDF> {
         tab: o.content !== 'notation',
         keySig: sig,
         stringCount: o.tuning.strings.length,
+        clef: o.tuning.instrument === 'bass' ? 'bass' : 'treble',
         degrees: o.degrees,
       });
       for (const svg of systems) {

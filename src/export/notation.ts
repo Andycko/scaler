@@ -29,6 +29,8 @@ export interface NotationOptions {
   /** VexFlow major key name for the key signature, or null for none. */
   keySig: string | null;
   stringCount: number;
+  /** Bass guitar is written in bass clef; both sound an octave below the written notes. */
+  clef?: 'treble' | 'bass';
   /** Annotate scale degrees under the notes. */
   degrees: boolean;
   notesPerMeasure?: number;
@@ -36,7 +38,7 @@ export interface NotationOptions {
   width?: number;
 }
 
-/** VexFlow key, written one octave above sounding pitch (guitar convention, treble-8vb clef). */
+/** VexFlow key, written one octave above sounding pitch (guitar: treble-8vb clef, bass guitar: bass-8vb clef). */
 export function vexKey(n: SpelledNote, midi: number): string {
   const acc = n.acc === 0 ? '' : n.acc > 0 ? '#'.repeat(n.acc) : 'b'.repeat(-n.acc);
   return `${LETTERS[n.letter].toLowerCase()}${acc}/${octaveOf(n, midi + 12)}`;
@@ -89,7 +91,7 @@ export function renderExercise(host: HTMLElement, notes: ExerciseNote[], o: Nota
       if (o.notation) {
         stave = new Stave(x, 40, w);
         if (mi === 0) {
-          stave.addClef('treble', 'default', '8vb');
+          stave.addClef(o.clef ?? 'treble', 'default', '8vb');
           if (o.keySig) stave.addKeySignature(o.keySig);
         }
         if (isLast) stave.setEndBarType(BarlineType.END);
@@ -113,7 +115,7 @@ export function renderExercise(host: HTMLElement, notes: ExerciseNote[], o: Nota
       let staveNotes: StaveNote[] = [];
       if (stave) {
         staveNotes = m.map((n) => {
-          const sn = new StaveNote({ keys: [vexKey(n.note, n.midi)], duration: '8', auto_stem: true, clef: 'treble' });
+          const sn = new StaveNote({ keys: [vexKey(n.note, n.midi)], duration: '8', auto_stem: true, clef: o.clef ?? 'treble' });
           if (o.degrees)
             sn.addModifier(
               new Annotation(degreeLabelAscii(n.degree)).setFont('Helvetica', 9).setVerticalJustification(Annotation.VerticalJustify.BOTTOM),

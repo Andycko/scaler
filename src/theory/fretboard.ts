@@ -8,20 +8,33 @@ export interface Tuning {
   strings: number[];
   /** Open-string names (ASCII accidentals), lowest first. */
   names: string[];
+  instrument: Instrument;
 }
 
+export type Instrument = 'guitar' | 'bass';
+
+const guitar = (id: string, name: string, strings: number[], names: string[]): Tuning => ({ id, name, strings, names, instrument: 'guitar' });
+const bass = (id: string, name: string, strings: number[], names: string[]): Tuning => ({ id, name, strings, names, instrument: 'bass' });
+
 export const TUNINGS: Tuning[] = [
-  { id: 'standard', name: 'Standard (E A D G B E)', strings: [40, 45, 50, 55, 59, 64], names: ['E', 'A', 'D', 'G', 'B', 'E'] },
-  { id: 'eb', name: 'Half step down (E♭ A♭ D♭ G♭ B♭ E♭)', strings: [39, 44, 49, 54, 58, 63], names: ['Eb', 'Ab', 'Db', 'Gb', 'Bb', 'Eb'] },
-  { id: 'd-standard', name: 'Whole step down (D G C F A D)', strings: [38, 43, 48, 53, 57, 62], names: ['D', 'G', 'C', 'F', 'A', 'D'] },
-  { id: 'drop-d', name: 'Drop D (D A D G B E)', strings: [38, 45, 50, 55, 59, 64], names: ['D', 'A', 'D', 'G', 'B', 'E'] },
-  { id: 'dadgad', name: 'DADGAD', strings: [38, 45, 50, 55, 57, 62], names: ['D', 'A', 'D', 'G', 'A', 'D'] },
-  { id: 'open-g', name: 'Open G (D G D G B D)', strings: [38, 43, 50, 55, 59, 62], names: ['D', 'G', 'D', 'G', 'B', 'D'] },
-  { id: 'open-d', name: 'Open D (D A D F♯ A D)', strings: [38, 45, 50, 54, 57, 62], names: ['D', 'A', 'D', 'F#', 'A', 'D'] },
-  { id: 'open-e', name: 'Open E (E B E G♯ B E)', strings: [40, 47, 52, 56, 59, 64], names: ['E', 'B', 'E', 'G#', 'B', 'E'] },
-  { id: 'bass', name: '4-string bass (E A D G)', strings: [28, 33, 38, 43], names: ['E', 'A', 'D', 'G'] },
-  { id: '7-string', name: '7-string (B E A D G B E)', strings: [35, 40, 45, 50, 55, 59, 64], names: ['B', 'E', 'A', 'D', 'G', 'B', 'E'] },
+  guitar('standard', 'Standard (E A D G B E)', [40, 45, 50, 55, 59, 64], ['E', 'A', 'D', 'G', 'B', 'E']),
+  guitar('eb', 'Half step down (E♭ A♭ D♭ G♭ B♭ E♭)', [39, 44, 49, 54, 58, 63], ['Eb', 'Ab', 'Db', 'Gb', 'Bb', 'Eb']),
+  guitar('d-standard', 'Whole step down (D G C F A D)', [38, 43, 48, 53, 57, 62], ['D', 'G', 'C', 'F', 'A', 'D']),
+  guitar('drop-d', 'Drop D (D A D G B E)', [38, 45, 50, 55, 59, 64], ['D', 'A', 'D', 'G', 'B', 'E']),
+  guitar('dadgad', 'DADGAD', [38, 45, 50, 55, 57, 62], ['D', 'A', 'D', 'G', 'A', 'D']),
+  guitar('open-g', 'Open G (D G D G B D)', [38, 43, 50, 55, 59, 62], ['D', 'G', 'D', 'G', 'B', 'D']),
+  guitar('open-d', 'Open D (D A D F♯ A D)', [38, 45, 50, 54, 57, 62], ['D', 'A', 'D', 'F#', 'A', 'D']),
+  guitar('open-e', 'Open E (E B E G♯ B E)', [40, 47, 52, 56, 59, 64], ['E', 'B', 'E', 'G#', 'B', 'E']),
+  guitar('7-string', '7-string (B E A D G B E)', [35, 40, 45, 50, 55, 59, 64], ['B', 'E', 'A', 'D', 'G', 'B', 'E']),
+  // bass guitar (an octave below the guitar's lowest four strings)
+  bass('bass', '4-string (E A D G)', [28, 33, 38, 43], ['E', 'A', 'D', 'G']),
+  bass('bass5', '5-string (B E A D G)', [23, 28, 33, 38, 43], ['B', 'E', 'A', 'D', 'G']),
+  bass('bass6', '6-string (B E A D G C)', [23, 28, 33, 38, 43, 48], ['B', 'E', 'A', 'D', 'G', 'C']),
+  bass('bass-drop-d', 'Drop D (D A D G)', [26, 33, 38, 43], ['D', 'A', 'D', 'G']),
+  bass('bass-eb', 'Half step down (E♭ A♭ D♭ G♭)', [27, 32, 37, 42], ['Eb', 'Ab', 'Db', 'Gb']),
 ];
+
+export const DEFAULT_TUNING: Record<Instrument, string> = { guitar: 'standard', bass: 'bass' };
 
 export interface FretNote {
   string: number; // 0 = lowest-pitched string

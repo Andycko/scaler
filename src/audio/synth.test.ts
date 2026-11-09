@@ -3,7 +3,7 @@ import { midiToFrequency } from '../theory/notes';
 import { TONES, fmSamples, pluckSamples } from './synth';
 
 /** Phase of the component at `f` in a Hann window centred on sample `c`. */
-function phaseAt(y: Float32Array, f: number, sr: number, c: number, N = 4096): number {
+function phaseAt(y: Float32Array, f: number, sr: number, c: number, N = windowFor(f, sr)): number {
   let re = 0;
   let im = 0;
   for (let i = 0; i < N; i++) {
@@ -14,6 +14,9 @@ function phaseAt(y: Float32Array, f: number, sr: number, c: number, N = 4096): n
   }
   return Math.atan2(im, re);
 }
+
+/** At least 8 periods in the analysis window (low bass notes need longer windows). */
+const windowFor = (f: number, sr: number) => Math.max(4096, 2 ** Math.ceil(Math.log2((sr / f) * 8)));
 
 const wrap = (x: number) => Math.atan2(Math.sin(x), Math.cos(x));
 
@@ -39,7 +42,8 @@ describe('synth tuning', () => {
   const sr = 48000;
   for (const tone of TONES.filter((t) => t.kind === 'pluck')) {
     it(`${tone.name} plucks are in tune across the neck`, () => {
-      for (const midi of [40, 45, 52, 57, 64, 71, 76, 84]) {
+      const range = tone.instrument === 'bass' ? [23, 28, 33, 38, 43, 50, 57, 64] : [40, 45, 52, 57, 64, 71, 76, 84];
+      for (const midi of range) {
         const f = detectPitch(pluckSamples(tone, midi, sr, 0), sr, midiToFrequency(midi));
         expect(Math.abs(cents(f, midiToFrequency(midi)))).toBeLessThan(1);
       }

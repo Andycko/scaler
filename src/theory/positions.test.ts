@@ -58,4 +58,18 @@ describe('box shapes', () => {
         expect(new Set(inst.notes.map((n) => mod(n.midi, 12))).size).toBe(scale.notes.length);
     }
   });
+
+  it('box shapes work on 4- and 5-string bass', () => {
+    const bass4 = TUNINGS.find((t) => t.id === 'bass')!;
+    const bass5 = TUNINGS.find((t) => t.id === 'bass5')!;
+    const scale = buildScale(parseNote('A'), 'pentatonic', 'minor-pentatonic');
+    const pos = computePositions(scale, bass4, 20);
+    expect(pos.patterns).toHaveLength(5);
+    // box 1 on a bass: same shape as the guitar's lower four strings, an octave down
+    const box1 = pos.patterns[0].first!;
+    const frets = bass4.strings.map((_, s) => box1.notes.filter((n) => n.string === s).map((n) => n.fret));
+    expect(frets).toEqual([[5, 8], [5, 7], [5, 7], [5, 7]]);
+    for (const inst of computePositions(scale, bass5, 20).instances)
+      for (const n of inst.notes) expect(scale.pcs).toContain(mod(n.midi, 12));
+  });
 });

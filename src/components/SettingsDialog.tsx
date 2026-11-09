@@ -1,11 +1,13 @@
 import { TONES, synth } from '../audio/synth';
-import { TUNINGS } from '../theory/fretboard';
+import { type Instrument, TUNINGS } from '../theory/fretboard';
 import type { LabelMode } from './Fretboard';
 import { Modal } from './Modal';
 
 interface Props {
   tuningId: string;
   onTuning: (id: string) => void;
+  instrument: Instrument;
+  onInstrument: (i: Instrument) => void;
   frets: number;
   onFrets: (n: number) => void;
   labelMode: LabelMode;
@@ -26,9 +28,19 @@ export function SettingsDialog(p: Props) {
     <Modal title="Settings" onClose={p.onClose}>
       <div className="settings">
         <div className="field">
+          <span>Instrument</span>
+          <div className="seg">
+            {(['guitar', 'bass'] as Instrument[]).map((i) => (
+              <button key={i} className={p.instrument === i ? 'on' : ''} onClick={() => p.onInstrument(i)}>
+                {i === 'guitar' ? 'Guitar' : 'Bass guitar'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="field">
           <span>Sound</span>
           <div className="tone-grid" role="radiogroup" aria-label="Synth tone">
-            {TONES.map((t) => (
+            {[...TONES.filter((t) => t.instrument === p.instrument), ...TONES.filter((t) => t.instrument === 'any')].map((t) => (
               <button
                 key={t.id}
                 role="radio"
@@ -50,7 +62,7 @@ export function SettingsDialog(p: Props) {
         <label className="field">
           <span>Tuning</span>
           <select value={p.tuningId} onChange={(e) => p.onTuning(e.target.value)}>
-            {TUNINGS.map((t) => (
+            {TUNINGS.filter((t) => t.instrument === p.instrument).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>

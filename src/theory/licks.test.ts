@@ -68,4 +68,29 @@ describe('licks', () => {
     // the first note: D on the G string, 7th fret, bent a whole step to E
     expect([placed[0].string, placed[0].fret, placed[0].bendTo! - placed[0].midi]).toEqual([3, 7, 2]);
   });
+
+  it('every lick also fits every bass tuning, in every key', () => {
+    for (const tuning of TUNINGS.filter((t) => t.instrument === 'bass'))
+      for (const f of FAMILIES)
+        for (const m of f.modes)
+          for (const k of KEY_CHOICES) {
+            const scale = buildScale(autoRootSpelling(k.pc, f.id, m.id), f.id, m.id);
+            for (const lick of LICKS[m.id] ?? [])
+              for (const n of placeLick(lick, scale, tuning, 20)) {
+                if (n.rest) continue;
+                expect(n.fret).toBeGreaterThanOrEqual(0);
+                expect(n.fret).toBeLessThanOrEqual(20);
+                expect(tuning.strings[n.string] + n.fret).toBe(n.midi);
+              }
+          }
+  });
+
+  it('on a 4-string bass, the A minor rock-bend lick sits in the 5th-position box', () => {
+    const bass4 = TUNINGS.find((t) => t.id === 'bass')!;
+    const scale = buildScale(autoRootSpelling(9, 'pentatonic', 'minor-pentatonic'), 'pentatonic', 'minor-pentatonic');
+    for (const n of placeLick(LICKS['minor-pentatonic'][0], scale, bass4, 20)) {
+      expect(n.fret).toBeGreaterThanOrEqual(4);
+      expect(n.fret).toBeLessThanOrEqual(9);
+    }
+  });
 });

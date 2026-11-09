@@ -49,6 +49,7 @@ export function ExportDialog(p: Props) {
         tab: content !== 'notation',
         keySig: keySignatureFor(p.scale),
         stringCount: p.tuning.strings.length,
+        clef: p.tuning.instrument === 'bass' ? 'bass' : 'treble',
         degrees,
       });
       host.querySelectorAll('svg').forEach((s) => {
